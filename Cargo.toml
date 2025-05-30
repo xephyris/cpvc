@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A simple to use library + wrapper for controlling system audio cross platform (WIP)"
 readme = "README.md"
 keywords = ["audio"]
-
+repository = "https://github.com/xephyris/cpvc"
 license-file = "LICENSE"
 authors = ["xephyris"]
 edition = "2024"
