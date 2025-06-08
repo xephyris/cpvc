@@ -10,3 +10,6 @@ authors = ["xephyris"]
 edition = "2024"
 
 [dependencies]
+
+[target.'cfg( target_os = "linux")'.dependencies]
+alsa = "0.9.1"
