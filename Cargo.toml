@@ -10,6 +10,7 @@ authors = ["xephyris"]
 edition = "2024"
 
 [dependencies]
+pipewire = "0.8.0"
 
 [target.'cfg( target_os = "linux")'.dependencies]
 alsa = "0.9.1"

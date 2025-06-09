@@ -1,9 +1,9 @@
-#[cfg(target_os="macos")]
 use std::process::Command;
 
 #[cfg(target_os="linux")]
 // use alsa::{card, ctl, pcm, mixer::{SelemId, Mixer, SelemChannelId}};
 use alsa::mixer::{SelemId, Mixer, SelemChannelId};
+use alsa::ctl;
 // use std::ffi::c_int;
 
 use std::env;
@@ -25,6 +25,54 @@ pub fn get_sound_devices() -> Vec<String> {
 
     }
     #[cfg(target_os="linux")] {
+        // ALSA cannot detect cards that show up in PipeWire 
+        // This function records the HW audio devices that are directly connected to the device
+        // Bluetooth devices are handled by PipeWire so they will not appear
+        let control = ctl::Ctl::new("pipewire", false);
+        let mut name = String::from("");
+        match control {
+            Ok(_) => {
+                name = String::from("pipewire");
+            },
+            Err(_) => {
+                let control = Mixer::new("pulse", false);
+                match control {
+                    Ok(_) => {
+                        name = String::from("pulse");
+                    },
+                    Err(_) => {
+                        eprintln!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported");
+                    }
+                }
+               
+            }
+
+        }
+        let control = ctl::Ctl::new(&name, false).unwrap();
+        let info = control.card_info().unwrap();
+        dbg!(info.get_mixername().unwrap());
+use std::ffi::c_int;
+
+        use alsa::{card, ctl, pcm, Direction};
+        let mut count = 0;
+        let mut audio_devices = Vec::new();
+        let control = ctl::Ctl::new("hw:1", false).unwrap();
+        while let Ok(cdev) = ctl::Ctl::new(&format!("hw:{}", count), false) {
+            audio_devices.push(cdev);
+            count += 1;
+        } 
+
+        let output = pcm::Info::new().unwrap();
+        dbg!(output.get_subdevices_count());
+        dbg!(audio_devices.into_iter().map(|ctl| ctl.card_info().unwrap().get_mixername().unwrap().to_owned()).collect::<Vec<String>>());
+        let mut count = 0;
+        let cdevices: Vec<c_int> = ctl::DeviceIter::new(&control).map(|x| {count += 1; x}).collect();
+        dbg!(cdevices);
+        dbg!(count);
+        let devices:Vec<card::Card> = card::Iter::new().map(|out| out.unwrap()).collect();
+        for device in devices {
+            dbg!(device.get_index());
+        }
     }
     devices
 }
@@ -58,21 +106,24 @@ pub fn get_system_volume() -> u8 {
             }
 
         }
-        let mixer = Mixer::new(&name, false).unwrap();
-        let id = SelemId::new("Master", 0);
-        let selem = mixer.find_selem(&id).unwrap();
-        let mut sum = 0;
-        let mut count = 0;
-        let mut citer =  SelemChannelId::all().iter();
-        let factor = selem.get_playback_volume_range().1 - selem.get_playback_volume_range().0;
-        while let Some(channel) = citer.next(){
-            if selem.has_playback_channel(*channel) {
-                sum += selem.get_playback_volume(*channel).unwrap_or_default();
-                count += 1;
+        
+        if name != "" {
+            let mixer = Mixer::new(&name, false).unwrap();
+            let id = SelemId::new("Master", 0);
+            let selem = mixer.find_selem(&id).unwrap();
+            let mut sum = 0;
+            let mut count = 0;
+            let mut citer =  SelemChannelId::all().iter();
+            let factor = selem.get_playback_volume_range().1 - selem.get_playback_volume_range().0;
+            while let Some(channel) = citer.next(){
+                if selem.has_playback_channel(*channel) {
+                    sum += selem.get_playback_volume(*channel).unwrap_or_default();
+                    count += 1;
+                }
             }
+            vol = (sum as f32 / count as f32 / factor as f32 * 100_f32) as u8;
+            // mixer
         }
-        vol = (sum as f32 / count as f32 / factor as f32 * 100_f32) as u8;
-        // mixer
     }
     vol
     
@@ -109,17 +160,19 @@ pub fn set_system_volume(percent: u8) -> bool {
                 }
                
             }
-
         }
-        let mixer = Mixer::new(&name, false).unwrap();
-        let id = SelemId::new("Master", 0);
-        let selem = mixer.find_selem(&id).unwrap();
-        let mut citer =  SelemChannelId::all().iter();
-        let factor = selem.get_playback_volume_range().1 - selem.get_playback_volume_range().0;
-        
-        while let Some(channel) = citer.next(){
-            if selem.has_playback_channel(*channel) {
-                selem.set_playback_volume(*channel, percent as i64 * factor / 100).unwrap_or_else(|_| success = false);
+
+        if name != "" {
+            let mixer = Mixer::new(&name, false).unwrap();
+            let id = SelemId::new("Master", 0);
+            let selem = mixer.find_selem(&id).unwrap();
+            let mut citer =  SelemChannelId::all().iter();
+            let factor = selem.get_playback_volume_range().1 - selem.get_playback_volume_range().0;
+            
+            while let Some(channel) = citer.next(){
+                if selem.has_playback_channel(*channel) {
+                    selem.set_playback_volume(*channel, percent as i64 * factor / 100).unwrap_or_else(|_| success = false);
+                }
             }
         }
     }
@@ -130,6 +183,52 @@ pub fn get_os() -> String {
     println!("{}", env::consts::OS);
     env::consts::OS.to_string()
 }
+
+pub fn get_system_volume_command() -> u8 {
+    #[allow(unused_assignments)]
+    let mut vol = 0;
+    #[cfg(target_os="macos")] {
+        let output = Command::new("osascript").arg("-e").arg("return output volume of (get volume settings)").output().expect("Are you running on MacOS?");
+        let out = String::from_utf8_lossy(&output.stdout).to_string().trim().to_owned();
+        vol = out.parse::<u8>().unwrap_or(0);
+    }
+    #[cfg(target_os="linux")] {
+        use std::process::Stdio;
+        let mixer = Command::new("amixer").arg("sget").arg("Master").stdout(Stdio::piped()).spawn().unwrap();
+        let channels = Command::new("grep").arg("-o").arg("[0-9]*%").stdin(mixer.stdout.unwrap()).stdout(Stdio::piped()).spawn().unwrap();
+        let channel_vols = Command::new("tr").arg("-d").arg("%").stdin(channels.stdout.unwrap()).output().unwrap();
+        let volumes:String = channel_vols.stdout.into_iter().map(|chr| chr as char).collect();
+        let volumes:Vec<u8> = volumes.trim().split("\n").map(|num| num.parse().unwrap_or(0)).collect();
+        vol = (volumes.iter().map(|x| *x as f32).sum::<f32>() / volumes.len() as f32) as u8;
+    }
+    vol
+    
+}
+
+pub fn set_system_volume_command(percent: u8) -> bool {
+    // println!("Setting vol to {}", format!("set Volume {}", (percent as f32 / 14.29 * 100.0).round() / 100.0));
+    #[allow(unused_assignments)]
+    let mut success = true;
+    #[cfg(target_os="macos")]{
+        let factor = 14.29;
+        let output = Command::new("osascript").arg("-e").arg(format!("set Volume {}",(percent as f32 / factor * 100.0).round() / 100.0)).output().expect("Are you running on MacOS?");
+        // dbg!(output);
+        success = output.status.success();
+    }
+    #[cfg(target_os="linux")] {
+        let command = Command::new("amixer").arg("-D").arg("pipewire").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
+        dbg!(command.clone());
+        if command.stderr.len() > 0 {
+            let retry = Command::new("amixer").arg("-D").arg("pulse").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
+            if retry.stderr.len() > 0 {
+                success = false;
+            }
+        }
+    }
+    success
+}
+
+
 
 #[cfg(test)]
 mod tests {
@@ -152,7 +251,7 @@ mod tests {
 
     #[test]
     fn current_output() {
-        dbg!(get_system_volume());
-        assert_eq!(get_system_volume(), 24);
+        dbg!(set_system_volume_command(24));
+        assert!(set_system_volume_command(24));
     }
 }
