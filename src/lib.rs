@@ -5,7 +5,7 @@ use std::process::Command;
 // use alsa::{card, ctl, pcm, mixer::{SelemId, Mixer, SelemChannelId}};
 use alsa::{ctl, mixer::{SelemId, Mixer, SelemChannelId}};
 
-mod command;
+pub mod command;
 
 use std::env;
 
