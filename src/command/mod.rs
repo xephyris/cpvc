@@ -25,18 +25,16 @@ pub fn get_system_volume_command() -> u8 {
 
 #[allow(dead_code)]
 pub fn set_system_volume_command(percent: u8) -> bool {
-    // println!("Setting vol to {}", format!("set Volume {}", (percent as f32 / 14.29 * 100.0).round() / 100.0));
+    
     #[allow(unused_assignments)]
     let mut success = true;
     #[cfg(target_os="macos")]{
         let factor = 14.29;
         let output = Command::new("osascript").arg("-e").arg(format!("set Volume {}",(percent as f32 / factor * 100.0).round() / 100.0)).output().expect("Are you running on MacOS?");
-        // dbg!(output);
         success = output.status.success();
     }
     #[cfg(target_os="linux")] {
         let command = Command::new("amixer").arg("-D").arg("pipewire").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
-        dbg!(command.clone());
         if command.stderr.len() > 0 {
             let retry = Command::new("amixer").arg("-D").arg("pulse").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
             if retry.stderr.len() > 0 {
@@ -65,9 +63,6 @@ pub fn get_sound_devices_command() -> Vec<String> {
 
     }
     #[cfg(target_os="linux")] {
-        // ALSA cannot detect cards that show up in PipeWire 
-        // This function records the HW audio devices that are directly connected to the device
-        // Bluetooth devices are handled by PipeWire so they will not appear
         let output = Command::new("pw-cli").arg("ls").arg("Node").output().unwrap();
         if output.stderr.len() == 0 {
             let mut contents:String = output.stdout.into_iter().map(|chr| chr as char).collect();
@@ -75,7 +70,6 @@ pub fn get_sound_devices_command() -> Vec<String> {
             let contents:Vec<String> = contents.split("\t").map(|x| x.to_owned()).collect();
             let contents:String = contents.into_iter().filter(|item| item.contains("media.class = \"Audio/Sink\"")).collect();
             devices = contents.split("\n").map(|i| i.to_owned()).filter(|x| x.contains("node.description")).map(|dev| dev.replace(" node.description = ", "").replace("\"", "")).collect();
-            dbg!(devices.clone());
         }
     }
     devices
@@ -86,15 +80,12 @@ mod tests {
     use super::*;
 
     #[test] 
-    // #[ignore]
     fn sound_devices() {
-        dbg!("{}", get_sound_devices_command());
         assert_eq!(false, true);
     }
 
     #[test]
     fn current_output() {
-        dbg!(set_system_volume_command(24));
         assert!(set_system_volume_command(24));
     }
 }
