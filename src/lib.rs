@@ -1,9 +1,11 @@
+#[cfg(target_os="macos")]
 use std::process::Command;
 
 #[cfg(target_os="linux")]
 // use alsa::{card, ctl, pcm, mixer::{SelemId, Mixer, SelemChannelId}};
 use alsa::mixer::{SelemId, Mixer, SelemChannelId};
-use alsa::ctl;
+
+mod command;
 // use std::ffi::c_int;
 
 use std::env;
@@ -51,12 +53,10 @@ pub fn get_sound_devices() -> Vec<String> {
         let control = ctl::Ctl::new(&name, false).unwrap();
         let info = control.card_info().unwrap();
         dbg!(info.get_mixername().unwrap());
-use std::ffi::c_int;
 
-        use alsa::{card, ctl, pcm, Direction};
+        use alsa::{ctl, pcm};
         let mut count = 0;
         let mut audio_devices = Vec::new();
-        let control = ctl::Ctl::new("hw:1", false).unwrap();
         while let Ok(cdev) = ctl::Ctl::new(&format!("hw:{}", count), false) {
             audio_devices.push(cdev);
             count += 1;
@@ -64,15 +64,18 @@ use std::ffi::c_int;
 
         let output = pcm::Info::new().unwrap();
         dbg!(output.get_subdevices_count());
-        dbg!(audio_devices.into_iter().map(|ctl| ctl.card_info().unwrap().get_mixername().unwrap().to_owned()).collect::<Vec<String>>());
-        let mut count = 0;
-        let cdevices: Vec<c_int> = ctl::DeviceIter::new(&control).map(|x| {count += 1; x}).collect();
-        dbg!(cdevices);
-        dbg!(count);
-        let devices:Vec<card::Card> = card::Iter::new().map(|out| out.unwrap()).collect();
-        for device in devices {
-            dbg!(device.get_index());
-        }
+        // dbg!(audio_devices.into_iter().map(|ctl| ctl.card_info().unwrap().get_mixername().unwrap().to_owned()).collect::<Vec<String>>());
+        devices.append(&mut audio_devices.into_iter().map(|ctl| ctl.card_info().unwrap().get_mixername().unwrap().to_owned()).collect::<Vec<String>>());
+        // let mut count = 0;
+        // let cdevices: Vec<c_int> = ctl::DeviceIter::new(&control).map(|x| {count += 1; x}).collect();
+        // dbg!(cdevices);
+        // dbg!(count);
+        // let device_list:Vec<card::Card> = card::Iter::new().map(|out| out.unwrap()).collect();
+        // for device in device_list {
+        //     dbg!(device.get_index());
+        //     devices.push(device.get_name().unwrap());
+        // }
+        // dbg!(devices.clone());
     }
     devices
 }
@@ -184,51 +187,6 @@ pub fn get_os() -> String {
     env::consts::OS.to_string()
 }
 
-pub fn get_system_volume_command() -> u8 {
-    #[allow(unused_assignments)]
-    let mut vol = 0;
-    #[cfg(target_os="macos")] {
-        let output = Command::new("osascript").arg("-e").arg("return output volume of (get volume settings)").output().expect("Are you running on MacOS?");
-        let out = String::from_utf8_lossy(&output.stdout).to_string().trim().to_owned();
-        vol = out.parse::<u8>().unwrap_or(0);
-    }
-    #[cfg(target_os="linux")] {
-        use std::process::Stdio;
-        let mixer = Command::new("amixer").arg("sget").arg("Master").stdout(Stdio::piped()).spawn().unwrap();
-        let channels = Command::new("grep").arg("-o").arg("[0-9]*%").stdin(mixer.stdout.unwrap()).stdout(Stdio::piped()).spawn().unwrap();
-        let channel_vols = Command::new("tr").arg("-d").arg("%").stdin(channels.stdout.unwrap()).output().unwrap();
-        let volumes:String = channel_vols.stdout.into_iter().map(|chr| chr as char).collect();
-        let volumes:Vec<u8> = volumes.trim().split("\n").map(|num| num.parse().unwrap_or(0)).collect();
-        vol = (volumes.iter().map(|x| *x as f32).sum::<f32>() / volumes.len() as f32) as u8;
-    }
-    vol
-    
-}
-
-pub fn set_system_volume_command(percent: u8) -> bool {
-    // println!("Setting vol to {}", format!("set Volume {}", (percent as f32 / 14.29 * 100.0).round() / 100.0));
-    #[allow(unused_assignments)]
-    let mut success = true;
-    #[cfg(target_os="macos")]{
-        let factor = 14.29;
-        let output = Command::new("osascript").arg("-e").arg(format!("set Volume {}",(percent as f32 / factor * 100.0).round() / 100.0)).output().expect("Are you running on MacOS?");
-        // dbg!(output);
-        success = output.status.success();
-    }
-    #[cfg(target_os="linux")] {
-        let command = Command::new("amixer").arg("-D").arg("pipewire").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
-        dbg!(command.clone());
-        if command.stderr.len() > 0 {
-            let retry = Command::new("amixer").arg("-D").arg("pulse").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
-            if retry.stderr.len() > 0 {
-                success = false;
-            }
-        }
-    }
-    success
-}
-
-
 
 #[cfg(test)]
 mod tests {
@@ -246,12 +204,25 @@ mod tests {
     // #[ignore]
     fn sound_devices() {
         dbg!("{}", get_sound_devices());
-        // assert_eq!(false, true);
+        assert_eq!(false, true);
     }
 
     #[test]
     fn current_output() {
-        dbg!(set_system_volume_command(24));
-        assert!(set_system_volume_command(24));
+        dbg!(set_system_volume(24));
+        assert!(set_system_volume(24));
+    }
+
+     #[test] 
+    // #[ignore]
+    fn sound_devices_cmd() {
+        dbg!("{}", command::get_sound_devices_command());
+        assert_eq!(false, true);
+    }
+
+    #[test]
+    fn current_output_cmd() {
+        dbg!(command::set_system_volume_command(24));
+        assert!(command::set_system_volume_command(24));
     }
 }
