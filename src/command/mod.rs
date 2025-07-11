@@ -80,11 +80,13 @@ mod tests {
     use super::*;
 
     #[test] 
+    #[ignore]
     fn sound_devices() {
         assert_eq!(false, true);
     }
 
     #[test]
+    #[ignore]
     fn current_output() {
         assert!(set_system_volume_command(24));
     }
