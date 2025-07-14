@@ -32,21 +32,21 @@ use {
 
 pub mod command;
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 fn debug_println(message: &str){
     println!("{}", message);
 }
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 fn debug_eprintln(message: &str){
     eprintln!("{}", message);
 }
 
-#[cfg(not(debug_assertions))]
-fn debug_println(message: &str){
+#[cfg(not(feature = "debug"))]
+fn debug_println(_: &str){
 
 }
-#[cfg(not(debug_assertions))]
-fn debug_eprintln(message: &str){
+#[cfg(not(feature = "debug"))]
+fn debug_eprintln(_: &str){
 
 }
 
