@@ -1,5 +1,6 @@
 
 use std::process::Command;
+use std::env;
 
 #[cfg(target_os="macos")] 
 use {
@@ -31,7 +32,23 @@ use {
 
 pub mod command;
 
-use std::env;
+#[cfg(debug_assertions)]
+fn debug_println(message: &str){
+    println!("{}", message);
+}
+#[cfg(debug_assertions)]
+fn debug_eprintln(message: &str){
+    eprintln!("{}", message);
+}
+
+#[cfg(not(debug_assertions))]
+fn debug_println(message: &str){
+
+}
+#[cfg(not(debug_assertions))]
+fn debug_eprintln(message: &str){
+
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum DeviceType {
@@ -125,7 +142,7 @@ pub fn get_sound_devices() -> Vec<String> {
                         name.push_str("pulse");
                     },
                     Err(_) => {
-                        eprintln!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported");
+                        debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
                     }
                 }
                
@@ -167,7 +184,7 @@ pub fn get_system_volume() -> u8 {
                         name = String::from("pulse");
                     },
                     Err(_) => {
-                        eprintln!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported");
+                        debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
                     }
                 }
                
@@ -226,7 +243,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                             0, null(),
                             volume_data_size, NonNull::new_unchecked(&volume as *const _ as *mut _));
                         if change_volume_status != 0 {
-                            eprintln!("Failed to change volume on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()})
+                            debug_eprintln(&format!("Failed to change volume on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
                         }
                     }
                 }
@@ -271,7 +288,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                         name = String::from("pulse");
                     },
                     Err(_) => {
-                        eprintln!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported");
+                        debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
                     }
                 }
                
@@ -454,7 +471,7 @@ fn get_device_name(device_id: u32) -> Result<String, Error> {
             if status == 0 {
                 Ok(CFString::wrap_under_get_rule(name).to_string())
             } else {
-                eprintln!("Failed to get device name. Status: {}", status);
+                debug_eprintln(&format!("Failed to get device name. Status: {}", status));
                 Err(Error::NameCaptureError)
             }
         }
