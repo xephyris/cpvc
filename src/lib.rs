@@ -166,9 +166,58 @@ pub fn get_system_volume() -> u8 {
     #[allow(unused_assignments)]
     let mut vol = 0;
     #[cfg(target_os="macos")] {
-        let output = Command::new("osascript").arg("-e").arg("return output volume of (get volume settings)").output().expect("Are you running on MacOS?");
-        let out = String::from_utf8_lossy(&output.stdout).to_string().trim().to_owned();
-        vol = out.parse::<u8>().unwrap_or(0);
+        let captured_device_id = capture_output_device_id();
+        if captured_device_id.is_ok() {
+            let device_id = captured_device_id.unwrap();
+            let device_details = get_output_device_details(device_id);
+            if device_details.is_ok() {
+                let channel_count = device_details.unwrap().mChannelsPerFrame;
+                let mut total_volume: f32 = 0.0;
+                let mut total_channels = 0;
+                let mut channel_volume: f32 = 0.0;
+                let mut volume_data_size = size_of::<f32>() as u32;
+
+                for channel in 0..=channel_count {
+                    let volume_property_address_channel = AudioObjectPropertyAddress {
+                        mSelector: kAudioDevicePropertyVolumeScalar,
+                        mScope: kAudioDevicePropertyScopeOutput,
+                        mElement: channel,
+                    };
+                    
+                    unsafe {
+                        let get_volume_data_size_status = AudioObjectGetPropertyDataSize(
+                                device_id,
+                                NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
+                                0, 
+                                null(),
+                                NonNull::new_unchecked(&mut volume_data_size as *const _ as *mut _),
+                            );
+                        if get_volume_data_size_status == 0 {
+                            let get_volume_status = AudioObjectGetPropertyData(
+                                device_id,
+                                NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
+                                0, 
+                                null(),
+                                NonNull::new_unchecked(&volume_data_size as *const _ as *mut _), 
+                                NonNull::new_unchecked(&mut channel_volume as *mut _ as *mut c_void));
+                            
+                            if get_volume_status != 0 {
+                                debug_eprintln(&format!("Failed to get volume on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
+                            } else {
+                                total_channels += 1;
+                                total_volume += channel_volume;
+                            }
+                        } else {
+                            debug_eprintln(&format!("Failed to get volume data size on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
+                        }
+                    }
+                }
+                if total_channels > 0 {
+                    total_volume *= 100.0;
+                    vol = (total_volume as u32 / total_channels) as u8;
+                }
+            }
+        }
     }
     #[cfg(target_os="linux")] {
         let mixer = Mixer::new("pipewire", false);
@@ -501,6 +550,7 @@ mod tests {
     
     fn sound_devices() {
         dbg!(get_sound_devices());
+        dbg!(get_system_volume());
         // get_default_output_dev();
         assert_eq!(false, true);
     }
