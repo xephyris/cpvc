@@ -9,6 +9,9 @@ pub fn get_system_volume_command() -> u8 {
         let out = String::from_utf8_lossy(&output.stdout).to_string().trim().to_owned();
         vol = out.parse::<u8>().unwrap_or(0);
     }
+    #[cfg(target_os="windows")]{
+        eprintln!("Windows is not supported by cpvc::command. View README.md for details.");
+    }
     #[cfg(target_os="linux")] {
         use std::process::Stdio;
         let mixer = Command::new("amixer").arg("sget").arg("Master").stdout(Stdio::piped()).spawn().unwrap();
@@ -32,6 +35,40 @@ pub fn set_system_volume_command(percent: u8) -> bool {
         let factor = 14.29;
         let output = Command::new("osascript").arg("-e").arg(format!("set Volume {}",(percent as f32 / factor * 100.0).round() / 100.0)).output().expect("Are you running on MacOS?");
         success = output.status.success();
+    }
+    #[cfg(target_os="windows")]{
+        eprintln!("Windows is not supported by cpvc::command. View README.md for details.");
+        let mute = format!(
+            "$wsh = New-Object -ComObject WScript.Shell; \
+                1..50 | % {{ $wsh.SendKeys([char]174) }};"
+        );
+
+        let adjust = format!(
+            "$wsh = New-Object -ComObject WScript.Shell; \
+                1..{} | % {{ $wsh.SendKeys([char]175) }};",
+                percent / 2
+        );
+    
+        let stage_one = Command::new("powershell")
+            .arg("-Command")
+            .arg(mute)
+            .output()
+            .expect("Failed to mute device");
+        
+        if stage_one.status.success() {
+            if percent / 2 > 0 {
+                let output = Command::new("powershell")
+                .arg("-Command")
+                .arg(adjust)
+                .output()
+                .expect("Failed to mute device");
+                success = output.status.success();
+            } else {
+                success = true;
+            }
+        } else {
+            success = stage_one.status.success();
+        }
     }
     #[cfg(target_os="linux")] {
         let command = Command::new("amixer").arg("-D").arg("pipewire").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
@@ -60,7 +97,7 @@ pub fn get_sound_devices_command() -> Vec<String> {
         }
     }
     #[cfg(target_os="windows")] {
-
+        eprintln!("Windows is not supported by cpvc::command. View README.md for details.");
     }
     #[cfg(target_os="linux")] {
         let output = Command::new("pw-cli").arg("ls").arg("Node").output().unwrap();
@@ -86,6 +123,7 @@ mod tests {
 
     #[test]
     fn current_output() {
-        assert!(set_system_volume_command(24));
+        dbg!(get_system_volume_command());
+        assert!(false);
     }
 }
