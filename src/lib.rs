@@ -1,5 +1,4 @@
 
-use std::process::Command;
 use std::env;
 
 #[cfg(target_os="macos")] 
@@ -32,19 +31,12 @@ use {
 
 pub mod command;
 
-#[cfg(feature = "debug")]
-fn debug_println(message: &str){
-    println!("{}", message);
-}
+
 #[cfg(feature = "debug")]
 fn debug_eprintln(message: &str){
     eprintln!("{}", message);
 }
 
-#[cfg(not(feature = "debug"))]
-fn debug_println(_: &str){
-
-}
 #[cfg(not(feature = "debug"))]
 fn debug_eprintln(_: &str){
 

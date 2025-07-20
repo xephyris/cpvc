@@ -1,10 +1,11 @@
 [package]
 name = "cpvc"
 version = "0.2.1"
-description = "A simple to use library + wrapper for controlling system audio cross platform (WIP)"
+description = "A simple to use crate + wrapper for controlling system audio cross platform (WIP)"
 readme = "README.md"
-keywords = ["audio"]
+keywords = ["audio", "cross platform"]
 repository = "https://github.com/xephyris/cpvc"
+license = "GPL-3.0"
 license-file = "LICENSE"
 authors = ["xephyris"]
 edition = "2024"
