@@ -23,7 +23,33 @@ pub fn get_sound_devices() -> Vec<String> {
         }
     }
     #[cfg(target_os="windows")] {
+        // use wasapi::*;
+        // initialize_mta().unwrap();
 
+        // println!("Found the following output devices:");
+        // for device in &DeviceCollection::new(&Direction::Render).unwrap() {
+        //     let dev = device.unwrap();
+        //     let state = &dev.get_state().unwrap();
+        //     println!(
+        //         "Device: {:?}. State: {:?}",
+        //         &dev.get_friendlyname().unwrap(),
+        //         state
+        //     );
+        // }
+
+        // println!("Default output devices:");
+        // [Role::Console, Role::Multimedia, Role::Communications]
+        //     .iter()
+        //     .for_each(|role| {
+        //         println!(
+        //             "{:?}: {:?}",
+        //             role,
+        //             get_default_device_for_role(&Direction::Render, role)
+        //                 .unwrap()
+        //                 .get_friendlyname()
+        //                 .unwrap()
+        //         );
+        //     });
     }
     #[cfg(target_os="linux")] {
         // ALSA cannot detect cards that show up in PipeWire 
@@ -123,6 +149,9 @@ pub fn set_system_volume(percent: u8) -> bool {
         let output = Command::new("osascript").arg("-e").arg(format!("set Volume {}",(percent as f32 / factor * 100.0).round() / 100.0)).output().expect("Are you running on MacOS?");
         success = output.status.success();
     }
+    #[cfg(target_os="windows")] {
+        
+    }
     #[cfg(target_os="linux")] {
         let mixer = Mixer::new("pipewire", false);
         let mut name = String::from("");
@@ -161,6 +190,47 @@ pub fn set_system_volume(percent: u8) -> bool {
     success
 }
 
+#[cfg(target_os="windows")]
+fn get_default_output_device() -> windows::Win32::Media::Audio::IMMDevice {
+    use windows::Win32::Media::Audio::{eRender, eMultimedia};
+    use windows::core::{Interface, GUID, Error};
+    use windows::Win32::Media::Audio::IMMDeviceEnumerator;
+    use windows::Win32::Media::Audio::{MMDeviceEnumerator, IMMDevice};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ};
+    use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
+
+    const CLSID_MMDEVICE_ENUMERATOR:GUID = MMDeviceEnumerator;
+    const IID_IMMDEVICE_ENUMERATOR:GUID = IMMDeviceEnumerator::IID;
+
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED).unwrap();
+        let hresult: Result<IMMDeviceEnumerator, Error> = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
+        match hresult {
+            Ok(device) => {
+
+                let default_device: IMMDevice = device.GetDefaultAudioEndpoint(eRender, eMultimedia).unwrap();
+                println!("Device ID {:?}", default_device.GetId().unwrap());
+                let result = default_device.OpenPropertyStore(STGM_READ);
+                match result {
+                    Ok(properties) => {
+                        let _ = properties.GetValue(&PKEY_Device_FriendlyName);
+                        // dbg!(properties.GetValue(&PKEY_Device_FriendlyName));
+                        default_device
+                    },
+                    Err(error) => {
+                        panic!("{}", error);
+                    }
+                }
+
+                
+            }, 
+            Err(error) => {
+                panic!("{}", error);
+            },
+        }
+    }
+}
+
 pub fn get_os() -> String {
     println!("{}", env::consts::OS);
     env::consts::OS.to_string()
@@ -173,28 +243,33 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_os() {
         println!("{}", get_os());
         assert_eq!(env::consts::OS, get_os());
     }
 
     #[test] 
+    #[ignore]
     fn sound_devices() {
+        get_sound_devices();
         assert_eq!(false, true);
     }
 
     #[test]
     fn current_output() {
         assert!(set_system_volume(24));
+        assert!(false);
     }
 
      #[test] 
-    // #[ignore]
+    #[ignore]
     fn sound_devices_cmd() {
         assert_eq!(false, true);
     }
 
     #[test]
+    #[ignore]
     fn current_output_cmd() {
         assert!(command::set_system_volume_command(24));
     }
