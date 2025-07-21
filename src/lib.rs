@@ -354,12 +354,37 @@ pub fn set_system_volume(percent: u8) -> bool {
                         }
                     }  
                 }
-                success.replace(sync_status);
+                if success.is_none() {
+                    success.replace(sync_status);
+                }
             } else {
                 success.replace(false);
             }
         }
         success.replace(output.status.success());
+    }
+    #[cfg(target_os="windows")] {
+        use windows::Win32::System::Com::CLSCTX_ALL;
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use std::ptr;
+
+        let device = get_default_output_device();
+        unsafe {
+            let volume_controls = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None).unwrap();
+            if volume_controls.GetMute().unwrap().into() {
+                volume_controls.SetMute(false, ptr::null()).unwrap();
+            }
+
+            let channel_count = volume_controls.GetChannelCount().unwrap();
+            for channel in 0..channel_count {
+                volume_controls.SetChannelVolumeLevelScalar(channel, percent as f32 / 100.0, ptr::null()).unwrap();
+            }   
+
+            if percent == 0 {
+                volume_controls.SetMute(true, ptr::null()).unwrap();
+            }
+        }
+        success.replace(true);
     }
     #[cfg(target_os="windows")] {
         use windows::Win32::System::Com::CLSCTX_ALL;
@@ -669,13 +694,14 @@ mod tests {
         assert!(command::set_system_volume_command(24));
     }
 
-    // #[test]
-    // #[ignore]
-    // fn get_device_details() {
-    //     println!("{}", get_default_output_dev());
-    //     get_output_device_details(capture_output_device_id().unwrap()).unwrap();
-    //     assert!(false);
-    // }
+    #[cfg(target_os="macos")]
+    #[test]
+    #[ignore]
+    fn get_device_details() {
+        println!("{}", get_default_output_dev());
+        get_output_device_details(capture_output_device_id().unwrap()).unwrap();
+        assert!(false);
+    }
 
 
 }
