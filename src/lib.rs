@@ -115,7 +115,30 @@ pub fn get_sound_devices() -> Vec<String> {
         }
     }
     #[cfg(target_os="windows")] {
+        unsafe {
+            use windows::Win32::Media::Audio::{eRender, DEVICE_STATE_ACTIVE};
+            use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
+            use windows::Win32::System::Com::STGM_READ;
 
+            let enumerator = get_enumerator();
+            let device_col = enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE).unwrap();
+            let dev_count = device_col.GetCount().unwrap();
+            for device_id in 0..dev_count{
+                let device = device_col.Item(device_id).unwrap();
+                let result = device.OpenPropertyStore(STGM_READ);
+                match result {
+                    Ok(properties) => {
+                        let name = properties.GetValue(&PKEY_Device_FriendlyName).unwrap();
+                        devices.push(name.to_string());
+                        // dbg!(properties.GetValue(&PKEY_Device_FriendlyName));
+                    },
+                    Err(error) => {
+                        panic!("{}", error);
+                    }
+                }     
+            }
+
+        }
     }
     #[cfg(target_os="linux")] {
         // ALSA cannot detect cards that show up in PipeWire 
@@ -156,7 +179,7 @@ pub fn get_sound_devices() -> Vec<String> {
 
 pub fn get_system_volume() -> u8 {
     #[allow(unused_assignments)]
-    let mut vol = 0;
+    let mut vol: u8 = 0;
     #[cfg(target_os="macos")] {
         let captured_device_id = capture_output_device_id();
         if captured_device_id.is_ok() {
@@ -211,6 +234,28 @@ pub fn get_system_volume() -> u8 {
             }
         }
     }
+    #[cfg(target_os="windows")] {
+        use windows::Win32::System::Com::CLSCTX_ALL;
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+
+        let device = get_default_output_device();
+        unsafe {
+            let volume_controls = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None).unwrap();
+            if volume_controls.GetMute().unwrap().into() {
+                vol = 0;
+            } else {
+                let channel_count = volume_controls.GetChannelCount().unwrap();
+                let mut total_volumes = 0.0;
+                for channel in 0..channel_count {
+                    total_volumes += volume_controls.GetChannelVolumeLevelScalar(channel).unwrap();
+                }
+                total_volumes *= 100.0;
+                vol = (total_volumes / channel_count as f32).round() as u8;
+            } 
+           
+            // dbg!(volume_controls);
+        }
+    }
     #[cfg(target_os="linux")] {
         let mixer = Mixer::new("pipewire", false);
         let mut name = String::from("");
@@ -258,7 +303,7 @@ pub fn get_system_volume() -> u8 {
 
 pub fn set_system_volume(percent: u8) -> bool {
     #[allow(unused_assignments)]
-    let mut success = true;
+    let mut success = None;
     #[cfg(target_os="macos")]{
         let captured_device_id = capture_output_device_id();
         if captured_device_id.is_ok() {
@@ -309,11 +354,35 @@ pub fn set_system_volume(percent: u8) -> bool {
                         }
                     }  
                 }
-                success = sync_status;
+                success.replace(sync_status);
             } else {
-                success = false;
+                success.replace(false);
             }
         }
+        success.replace(output.status.success());
+    }
+    #[cfg(target_os="windows")] {
+        use windows::Win32::System::Com::CLSCTX_ALL;
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use std::ptr;
+
+        let device = get_default_output_device();
+        unsafe {
+            let volume_controls = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None).unwrap();
+            if volume_controls.GetMute().unwrap().into() {
+                volume_controls.SetMute(false, ptr::null()).unwrap();
+            }
+
+            let channel_count = volume_controls.GetChannelCount().unwrap();
+            for channel in 0..channel_count {
+                volume_controls.SetChannelVolumeLevelScalar(channel, percent as f32 / 100.0, ptr::null()).unwrap();
+            }   
+
+            if percent == 0 {
+                volume_controls.SetMute(true, ptr::null()).unwrap();
+            }
+        }
+        success.replace(true);
     }
     #[cfg(target_os="linux")] {
         let mixer = Mixer::new("pipewire", false);
@@ -350,7 +419,41 @@ pub fn set_system_volume(percent: u8) -> bool {
             }
         }
     }
-    success
+    success.unwrap_or(false)
+}
+
+#[cfg(target_os="windows")]
+fn get_default_output_device() -> windows::Win32::Media::Audio::IMMDevice {
+    use windows::Win32::Media::Audio::{eRender, eMultimedia};
+    use windows::Win32::Media::Audio::IMMDevice;
+
+    unsafe {
+        let enumerator = get_enumerator();
+        let default_device: IMMDevice = enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia).unwrap();
+        // println!("Device ID {:?}", default_device.GetId().unwrap());
+        default_device
+    }
+}
+
+#[cfg(target_os="windows")]
+unsafe fn get_enumerator() -> windows::Win32::Media::Audio::IMMDeviceEnumerator {
+    use windows::core::{Error};
+    use windows::Win32::Media::Audio::IMMDeviceEnumerator;
+    use windows::Win32::Media::Audio::{MMDeviceEnumerator};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
+    
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED).unwrap();
+        let hresult: Result<IMMDeviceEnumerator, Error> = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
+        match hresult {
+            Ok(devices) => {
+                devices
+            }, 
+            Err(error) => {
+                panic!("{}", error);
+            }
+        }
+    }
 }
 
 pub fn get_default_output_dev() -> String {
@@ -550,7 +653,8 @@ mod tests {
     #[test]
     #[ignore]
     fn current_output() {
-        // assert!(set_system_volume(24));
+        dbg!(set_system_volume(0));  
+        assert!(false);
     }
 
     #[test] 
@@ -565,13 +669,13 @@ mod tests {
         assert!(command::set_system_volume_command(24));
     }
 
-    #[test]
-    #[ignore]
-    fn get_device_details() {
-        println!("{}", get_default_output_dev());
-        get_output_device_details(capture_output_device_id().unwrap()).unwrap();
-        assert!(false);
-    }
+    // #[test]
+    // #[ignore]
+    // fn get_device_details() {
+    //     println!("{}", get_default_output_dev());
+    //     get_output_device_details(capture_output_device_id().unwrap()).unwrap();
+    //     assert!(false);
+    // }
 
 
 }
