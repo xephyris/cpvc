@@ -184,6 +184,10 @@ pub fn set_system_volume(percent: u8) -> bool {
             for channel in 0..channel_count {
                 volume_controls.SetChannelVolumeLevelScalar(channel, percent as f32 / 100.0, ptr::null()).unwrap();
             }   
+
+            if percent == 0 {
+                volume_controls.SetMute(true, ptr::null()).unwrap();
+            }
         }
         success.replace(true);
     }
@@ -285,9 +289,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn current_output() {
-        dbg!(set_system_volume(25));
+        dbg!(set_system_volume(0));
+        
         assert!(false);
     }
 
