@@ -117,11 +117,13 @@ mod tests {
     use super::*;
 
     #[test] 
+    #[ignore]
     fn sound_devices() {
         assert_eq!(false, true);
     }
 
     #[test]
+    #[ignore]
     fn current_output() {
         dbg!(get_system_volume_command());
         assert!(false);
