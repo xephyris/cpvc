@@ -1,10 +1,11 @@
 [package]
 name = "cpvc"
 version = "0.2.1"
-description = "A simple to use library + wrapper for controlling system audio cross platform (WIP)"
+description = "A simple to use crate + wrapper for controlling system audio cross platform (WIP)"
 readme = "README.md"
-keywords = ["audio"]
+keywords = ["audio", "cross platform"]
 repository = "https://github.com/xephyris/cpvc"
+license = "GPL-3.0"
 license-file = "LICENSE"
 authors = ["xephyris"]
 edition = "2024"
@@ -15,5 +16,14 @@ windows = { version = "0.61.3", features = ["Win32", "Win32_Media", "Win32_Media
                                             "Win32_UI_Shell_PropertiesSystem", "Win32_Devices", 
                                             "Win32_Devices_FunctionDiscovery",] }
 
-[target.'cfg( target_os = "linux")'.dependencies]
+
+[target.'cfg(target_os = "linux")'.dependencies]
 alsa = "0.9.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10.1"
+objc2-core-audio = "0.3.1"
+objc2-core-audio-types = "0.3.1"
+
+[features]
+debug = []
