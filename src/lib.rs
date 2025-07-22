@@ -361,7 +361,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                 success.replace(false);
             }
         }
-        success.replace(output.status.success());
+        success.unwrap_or(false);
     }
     #[cfg(target_os="windows")] {
         use windows::Win32::System::Com::CLSCTX_ALL;
