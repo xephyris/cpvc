@@ -670,29 +670,46 @@ mod tests {
     
     fn sound_devices() {
         dbg!(get_sound_devices());
-        dbg!(get_system_volume());
-        // get_default_output_dev();
-        assert_eq!(false, true);
-    }
-
-    #[test]
-    #[ignore]
-    fn current_output() {
-        dbg!(set_system_volume(0));  
         assert!(false);
     }
 
-    #[test] 
-    #[ignore]
-    fn sound_devices_cmd() {
-        assert_eq!(false, true);
+    #[test]
+    fn set_sound_test() {
+        dbg!(set_system_volume(24));
+        assert!(false);
     }
 
     #[test]
-    #[ignore]
-    fn current_output_cmd() {
-        assert!(command::set_system_volume_command(24));
+    fn get_sound_test() {
+        dbg!(get_system_volume());
+        assert!(false);
     }
+
+    #[test]
+    fn set_mute_test() {
+        dbg!(set_system_volume(0));
+        assert!(false);
+    }
+
+
+    // #[test]
+    // #[ignore]
+    // fn current_output() {
+    //     dbg!(set_system_volume(0));  
+    //     assert!(false);
+    // }
+
+    // #[test] 
+    // #[ignore]
+    // fn sound_devices_cmd() {
+    //     assert_eq!(false, true);
+    // }
+
+    // #[test]
+    // #[ignore]
+    // fn current_output_cmd() {
+    //     assert!(command::set_system_volume_command(24));
+    // }
 
     #[cfg(target_os="macos")]
     #[test]
