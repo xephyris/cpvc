@@ -1,6 +1,7 @@
 
 use std::env;
 
+
 #[cfg(target_os="macos")] 
 use {
     std::ffi::c_void,
@@ -185,7 +186,7 @@ pub fn get_system_volume() -> u8 {
         if captured_device_id.is_ok() {
             let device_id = captured_device_id.unwrap();
             let device_details = get_output_device_details(device_id);
-            if device_details.is_ok() {
+            if device_details.is_ok() {s
                 let channel_count = device_details.unwrap().mChannelsPerFrame;
                 let mut total_volume: f32 = 0.0;
                 let mut total_channels = 0;
@@ -229,6 +230,7 @@ pub fn get_system_volume() -> u8 {
                 }
                 if total_channels > 0 {
                     total_volume *= 100.0;
+                    total_volume = total_volume.round();
                     vol = (total_volume as u32 / total_channels) as u8;
                 }
             }
@@ -342,8 +344,9 @@ pub fn set_system_volume(percent: u8) -> bool {
 
                 let mut sync_status = true;
                 // Mute then unmute hardware device so software sound level will sync with hardware sound level
-                for mute in (0..=1 as u32).rev() {
+                if percent == 0 {
                     let mute_data_size = size_of::<u32>() as u32;
+                    let mute = 1 as u32;
                     unsafe {
                         let mute_status = AudioObjectSetPropertyData(device_id,
                             NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
@@ -353,6 +356,19 @@ pub fn set_system_volume(percent: u8) -> bool {
                             sync_status = false;
                         }
                     }  
+                } else {
+                    for mute in (0..=1 as u32).rev() {
+                        let mute_data_size = size_of::<u32>() as u32;
+                        unsafe {
+                            let mute_status = AudioObjectSetPropertyData(device_id,
+                                NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
+                                0, null(),
+                                mute_data_size, NonNull::new_unchecked(&mute as *const _ as *mut _));
+                            if mute_status != 0 {
+                                sync_status = false;
+                            }
+                        }  
+                    }
                 }
                 if success.is_none() {
                     success.replace(sync_status);
@@ -675,7 +691,7 @@ mod tests {
 
     #[test]
     fn set_sound_test() {
-        dbg!(set_system_volume(24));
+        dbg!(set_system_volume(2));
         assert!(false);
     }
 
@@ -688,6 +704,7 @@ mod tests {
     #[test]
     fn set_mute_test() {
         dbg!(set_system_volume(0));
+        dbg!(get_system_volume());
         assert!(false);
     }
 
@@ -701,7 +718,7 @@ mod tests {
 
     // #[test] 
     // #[ignore]
-    // fn sound_devices_cmd() {
+    // fn sound_devices_cmd() {a
     //     assert_eq!(false, true);
     // }
 
