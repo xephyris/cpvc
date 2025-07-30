@@ -185,54 +185,79 @@ pub fn get_system_volume() -> u8 {
         let captured_device_id = capture_output_device_id();
         if captured_device_id.is_ok() {
             let device_id = captured_device_id.unwrap();
-            let device_details = get_output_device_details(device_id);
-            if device_details.is_ok() {s
-                let channel_count = device_details.unwrap().mChannelsPerFrame;
-                let mut total_volume: f32 = 0.0;
-                let mut total_channels = 0;
-                let mut channel_volume: f32 = 0.0;
-                let mut volume_data_size = size_of::<f32>() as u32;
+            let mute_property_address = AudioObjectPropertyAddress {
+                    mSelector: kAudioDevicePropertyMute,
+                    mScope: kAudioDevicePropertyScopeOutput,
+                    mElement: kAudioObjectPropertyElementMain
+                };
 
-                for channel in 0..=channel_count {
-                    let volume_property_address_channel = AudioObjectPropertyAddress {
-                        mSelector: kAudioDevicePropertyVolumeScalar,
-                        mScope: kAudioDevicePropertyScopeOutput,
-                        mElement: channel,
-                    };
-                    
-                    unsafe {
-                        let get_volume_data_size_status = AudioObjectGetPropertyDataSize(
-                                device_id,
-                                NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
-                                0, 
-                                null(),
-                                NonNull::new_unchecked(&mut volume_data_size as *const _ as *mut _),
-                            );
-                        if get_volume_data_size_status == 0 {
-                            let get_volume_status = AudioObjectGetPropertyData(
-                                device_id,
-                                NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
-                                0, 
-                                null(),
-                                NonNull::new_unchecked(&volume_data_size as *const _ as *mut _), 
-                                NonNull::new_unchecked(&mut channel_volume as *mut _ as *mut c_void));
-                            
-                            if get_volume_status != 0 {
-                                debug_eprintln(&format!("Failed to get volume on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
+            // Check if Muted
+            let mut mute = 0 as u32;
+            let mute_data_size = size_of::<u32>() as u32;
+            unsafe {
+                let mute_status = AudioObjectGetPropertyData(
+                    device_id,
+                    NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
+                    0, 
+                    null(),
+                    NonNull::new_unchecked(&mute_data_size as *const _ as *mut _), 
+                    NonNull::new_unchecked(&mut mute as *mut _ as *mut c_void));
+                if mute_status != 0 {
+                    debug_eprintln("Failed to get mute status");
+                }
+            } 
+            if mute == 0 {
+                let device_details = get_output_device_details(device_id);
+                if device_details.is_ok() {
+                    let channel_count = device_details.unwrap().mChannelsPerFrame;
+                    let mut total_volume: f32 = 0.0;
+                    let mut total_channels = 0;
+                    let mut channel_volume: f32 = 0.0;
+                    let mut volume_data_size = size_of::<f32>() as u32;
+
+                    for channel in 0..=channel_count {
+                        let volume_property_address_channel = AudioObjectPropertyAddress {
+                            mSelector: kAudioDevicePropertyVolumeScalar,
+                            mScope: kAudioDevicePropertyScopeOutput,
+                            mElement: channel,
+                        };
+                        
+                        unsafe {
+                            let get_volume_data_size_status = AudioObjectGetPropertyDataSize(
+                                    device_id,
+                                    NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
+                                    0, 
+                                    null(),
+                                    NonNull::new_unchecked(&mut volume_data_size as *const _ as *mut _),
+                                );
+                            if get_volume_data_size_status == 0 {
+                                let get_volume_status = AudioObjectGetPropertyData(
+                                    device_id,
+                                    NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
+                                    0, 
+                                    null(),
+                                    NonNull::new_unchecked(&volume_data_size as *const _ as *mut _), 
+                                    NonNull::new_unchecked(&mut channel_volume as *mut _ as *mut c_void));
+                                
+                                if get_volume_status != 0 {
+                                    debug_eprintln(&format!("Failed to get volume on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
+                                } else {
+                                    total_channels += 1;
+                                    total_volume += channel_volume;
+                                }
                             } else {
-                                total_channels += 1;
-                                total_volume += channel_volume;
+                                debug_eprintln(&format!("Failed to get volume data size on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
                             }
-                        } else {
-                            debug_eprintln(&format!("Failed to get volume data size on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
                         }
                     }
+                    if total_channels > 0 {
+                        total_volume *= 100.0;
+                        total_volume = total_volume.round();
+                        vol = (total_volume as u32 / total_channels) as u8;
+                    }
                 }
-                if total_channels > 0 {
-                    total_volume *= 100.0;
-                    total_volume = total_volume.round();
-                    vol = (total_volume as u32 / total_channels) as u8;
-                }
+            } else {
+                vol = 0;
             }
         }
     }
@@ -319,6 +344,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                 let volume_data_size = size_of::<f32>() as u32;
 
                 for channel in 0..=channel_count {
+                    debug_eprintln(&format!("channel {}", channel));
                     let volume_property_address_channel = AudioObjectPropertyAddress {
                         mSelector: kAudioDevicePropertyVolumeScalar,
                         mScope: kAudioDevicePropertyScopeOutput,
