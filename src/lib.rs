@@ -2,12 +2,12 @@
 use std::env;
 
 
-#[cfg(target_os="macos")] 
+#[cfg(target_os="macos")]
 use {
     std::ffi::c_void,
     std::ptr::{null, null_mut},
     std::mem::{size_of},
-    std::ptr::NonNull, 
+    std::ptr::NonNull,
     core_foundation::{base::TCFType, string::{CFString, CFStringRef}},
     objc2_core_audio_types::{AudioStreamBasicDescription},
     objc2_core_audio::{
@@ -71,10 +71,10 @@ pub fn get_sound_devices() -> Vec<String> {
 
         unsafe {
             let capture_count_status = AudioObjectGetPropertyDataSize(
-                kAudioObjectSystemObject as AudioObjectID, 
-                NonNull::new_unchecked(&audio_devices_count_address as *const _ as *mut _), 
-                0, 
-                null(), 
+                kAudioObjectSystemObject as AudioObjectID,
+                NonNull::new_unchecked(&audio_devices_count_address as *const _ as *mut _),
+                0,
+                null(),
                 NonNull::new_unchecked(&mut device_count as *mut _));
             if capture_count_status == 0 {
                 success = true;
@@ -86,11 +86,11 @@ pub fn get_sound_devices() -> Vec<String> {
 
             unsafe {
                 let capture_id_status = AudioObjectGetPropertyData(
-                    kAudioObjectSystemObject as AudioObjectID, 
-                    NonNull::new_unchecked(&audio_devices_count_address as *const _ as * mut _), 
-                    0, 
-                    null(), 
-                    NonNull::new_unchecked(&device_count as *const _ as *mut _), 
+                    kAudioObjectSystemObject as AudioObjectID,
+                    NonNull::new_unchecked(&audio_devices_count_address as *const _ as * mut _),
+                    0,
+                    null(),
+                    NonNull::new_unchecked(&device_count as *const _ as *mut _),
                     NonNull::new_unchecked(device_details.as_mut_ptr() as *mut c_void));
                 if capture_id_status == 0 {
                     device_details.set_len(device_count as usize);
@@ -107,10 +107,10 @@ pub fn get_sound_devices() -> Vec<String> {
                             devices.push(name);
                         },
                         DeviceType::None => {
-                            
+
                         }
                     }
-                    
+
                 }
             }
         }
@@ -136,13 +136,13 @@ pub fn get_sound_devices() -> Vec<String> {
                     Err(error) => {
                         panic!("{}", error);
                     }
-                }     
+                }
             }
 
         }
     }
     #[cfg(target_os="linux")] {
-        // ALSA cannot detect cards that show up in PipeWire 
+        // ALSA cannot detect cards that show up in PipeWire
         // This function records the HW audio devices that are directly connected to the device
         // Bluetooth devices are handled by PipeWire so they will not appear
         let control = ctl::Ctl::new("pipewire", false);
@@ -161,7 +161,7 @@ pub fn get_sound_devices() -> Vec<String> {
                         debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
                     }
                 }
-               
+
             }
 
         }
@@ -171,7 +171,7 @@ pub fn get_sound_devices() -> Vec<String> {
         while let Ok(cdev) = ctl::Ctl::new(&format!("hw:{}", count), false) {
             audio_devices.push(cdev);
             count += 1;
-        } 
+        }
 
         devices.append(&mut audio_devices.into_iter().map(|ctl| ctl.card_info().unwrap().get_mixername().unwrap().to_owned()).collect::<Vec<String>>());
     }
@@ -198,14 +198,14 @@ pub fn get_system_volume() -> u8 {
                 let mute_status = AudioObjectGetPropertyData(
                     device_id,
                     NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
-                    0, 
+                    0,
                     null(),
-                    NonNull::new_unchecked(&mute_data_size as *const _ as *mut _), 
+                    NonNull::new_unchecked(&mute_data_size as *const _ as *mut _),
                     NonNull::new_unchecked(&mut mute as *mut _ as *mut c_void));
                 if mute_status != 0 {
                     debug_eprintln("Failed to get mute status");
                 }
-            } 
+            }
             if mute == 0 {
                 let device_details = get_output_device_details(device_id);
                 if device_details.is_ok() {
@@ -221,12 +221,12 @@ pub fn get_system_volume() -> u8 {
                             mScope: kAudioDevicePropertyScopeOutput,
                             mElement: channel,
                         };
-                        
+
                         unsafe {
                             let get_volume_data_size_status = AudioObjectGetPropertyDataSize(
                                     device_id,
                                     NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
-                                    0, 
+                                    0,
                                     null(),
                                     NonNull::new_unchecked(&mut volume_data_size as *const _ as *mut _),
                                 );
@@ -234,11 +234,11 @@ pub fn get_system_volume() -> u8 {
                                 let get_volume_status = AudioObjectGetPropertyData(
                                     device_id,
                                     NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
-                                    0, 
+                                    0,
                                     null(),
-                                    NonNull::new_unchecked(&volume_data_size as *const _ as *mut _), 
+                                    NonNull::new_unchecked(&volume_data_size as *const _ as *mut _),
                                     NonNull::new_unchecked(&mut channel_volume as *mut _ as *mut c_void));
-                                
+
                                 if get_volume_status != 0 {
                                     debug_eprintln(&format!("Failed to get volume on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
                                 } else {
@@ -278,8 +278,8 @@ pub fn get_system_volume() -> u8 {
                 }
                 total_volumes *= 100.0;
                 vol = (total_volumes / channel_count as f32).round() as u8;
-            } 
-           
+            }
+
             // dbg!(volume_controls);
         }
     }
@@ -300,11 +300,11 @@ pub fn get_system_volume() -> u8 {
                         debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
                     }
                 }
-               
+
             }
 
         }
-        
+
         if name != "" {
             let mixer = Mixer::new(&name, false).unwrap();
             let id = SelemId::new("Master", 0);
@@ -323,7 +323,7 @@ pub fn get_system_volume() -> u8 {
         }
     }
     vol
-    
+
 }
 
 
@@ -350,7 +350,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                         mScope: kAudioDevicePropertyScopeOutput,
                         mElement: channel,
                     };
-                    
+
                     unsafe {
                         let change_volume_status = AudioObjectSetPropertyData(device_id,
                             NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
@@ -381,7 +381,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                         if mute_status != 0 {
                             sync_status = false;
                         }
-                    }  
+                    }
                 } else {
                     for mute in (0..=1 as u32).rev() {
                         let mute_data_size = size_of::<u32>() as u32;
@@ -393,7 +393,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                             if mute_status != 0 {
                                 sync_status = false;
                             }
-                        }  
+                        }
                     }
                 }
                 if success.is_none() {
@@ -420,7 +420,7 @@ pub fn set_system_volume(percent: u8) -> bool {
             let channel_count = volume_controls.GetChannelCount().unwrap();
             for channel in 0..channel_count {
                 volume_controls.SetChannelVolumeLevelScalar(channel, percent as f32 / 100.0, ptr::null()).unwrap();
-            }   
+            }
 
             if percent == 0 {
                 volume_controls.SetMute(true, ptr::null()).unwrap();
@@ -443,7 +443,7 @@ pub fn set_system_volume(percent: u8) -> bool {
             let channel_count = volume_controls.GetChannelCount().unwrap();
             for channel in 0..channel_count {
                 volume_controls.SetChannelVolumeLevelScalar(channel, percent as f32 / 100.0, ptr::null()).unwrap();
-            }   
+            }
 
             if percent == 0 {
                 volume_controls.SetMute(true, ptr::null()).unwrap();
@@ -468,7 +468,7 @@ pub fn set_system_volume(percent: u8) -> bool {
                         debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
                     }
                 }
-               
+
             }
         }
 
@@ -478,10 +478,17 @@ pub fn set_system_volume(percent: u8) -> bool {
             let selem = mixer.find_selem(&id).unwrap();
             let mut citer =  SelemChannelId::all().iter();
             let factor = selem.get_playback_volume_range().1 - selem.get_playback_volume_range().0;
-            
+
             while let Some(channel) = citer.next(){
                 if selem.has_playback_channel(*channel) {
-                    selem.set_playback_volume(*channel, percent as i64 * factor / 100).unwrap_or_else(|_| success = false);
+                    match selem.set_playback_volume(*channel, percent as i64 * factor / 100) {
+                        Ok(_) => {
+                            success.replace(true);
+                        },
+                        Err(error) => {
+                            eprintln!("failed to set volume of channel {channel}: {error}");
+                        }
+                    };
                 }
             }
         }
@@ -508,14 +515,14 @@ unsafe fn get_enumerator() -> windows::Win32::Media::Audio::IMMDeviceEnumerator 
     use windows::Win32::Media::Audio::IMMDeviceEnumerator;
     use windows::Win32::Media::Audio::{MMDeviceEnumerator};
     use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
-    
+
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED).unwrap();
         let hresult: Result<IMMDeviceEnumerator, Error> = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
         match hresult {
             Ok(devices) => {
                 devices
-            }, 
+            },
             Err(error) => {
                 panic!("{}", error);
             }
@@ -559,7 +566,7 @@ fn capture_output_device_id() -> Result<u32, Error> {
             NonNull::new_unchecked(&mut data_size),
             NonNull::new_unchecked(&mut device_id as *mut _ as *mut c_void),
         );
-        
+
         if capture_output_status == 0 {
             Ok(device_id)
         } else {
@@ -569,7 +576,7 @@ fn capture_output_device_id() -> Result<u32, Error> {
 
 }
 
-#[cfg(target_os="macos")] 
+#[cfg(target_os="macos")]
 fn check_device_type(device_id: u32) -> DeviceType {
     let dev_type_address = AudioObjectPropertyAddress {
         mSelector: kAudioDevicePropertyStreams,
@@ -582,11 +589,11 @@ fn check_device_type(device_id: u32) -> DeviceType {
     let capture_type_status;
     unsafe {
         capture_type_status = AudioObjectGetPropertyData(
-            device_id, 
-            NonNull::new_unchecked(&dev_type_address as *const _ as *mut _), 
-            0, 
-            null(), 
-            NonNull::new_unchecked(&count_size as *const _ as *mut _), 
+            device_id,
+            NonNull::new_unchecked(&dev_type_address as *const _ as *mut _),
+            0,
+            null(),
+            NonNull::new_unchecked(&count_size as *const _ as *mut _),
             NonNull::new_unchecked(&mut stream_count as *mut _ as *mut c_void));
     }
     if capture_type_status == 0 {
@@ -603,11 +610,11 @@ fn check_device_type(device_id: u32) -> DeviceType {
             let capture_in_type_status;
             unsafe {
                 capture_in_type_status = AudioObjectGetPropertyData(
-                    device_id, 
-                    NonNull::new_unchecked(&input_type_address as *const _ as *mut _), 
-                    0, 
-                    null(), 
-                    NonNull::new_unchecked(&in_count_size as *const _ as *mut _), 
+                    device_id,
+                    NonNull::new_unchecked(&input_type_address as *const _ as *mut _),
+                    0,
+                    null(),
+                    NonNull::new_unchecked(&in_count_size as *const _ as *mut _),
                     NonNull::new_unchecked(&mut in_stream_count as *mut _ as *mut c_void)
                 );
             }
@@ -623,31 +630,31 @@ fn check_device_type(device_id: u32) -> DeviceType {
 
 }
 
-#[cfg(target_os="macos")] 
+#[cfg(target_os="macos")]
 fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescription, Error> {
     let property_address = AudioObjectPropertyAddress{
         mSelector: kAudioDevicePropertyStreamFormat,
         mScope: kAudioObjectPropertyScopeOutput,
         mElement: kAudioObjectPropertyElementMain,
     };
-    let mut details: AudioStreamBasicDescription = AudioStreamBasicDescription { 
-        mSampleRate: 0.0, 
-        mFormatID: 0, 
-        mFormatFlags: 0, 
-        mBytesPerPacket: 0, 
-        mFramesPerPacket: 0, 
-        mBytesPerFrame: 0, 
-        mChannelsPerFrame: 0, 
-        mBitsPerChannel: 0, 
+    let mut details: AudioStreamBasicDescription = AudioStreamBasicDescription {
+        mSampleRate: 0.0,
+        mFormatID: 0,
+        mFormatFlags: 0,
+        mBytesPerPacket: 0,
+        mFramesPerPacket: 0,
+        mBytesPerFrame: 0,
+        mChannelsPerFrame: 0,
+        mBitsPerChannel: 0,
         mReserved: 0 };
     let data_size = size_of::<AudioStreamBasicDescription>();
 
     unsafe {
-        let detail_capture_status = AudioObjectGetPropertyData(device_id, 
-            NonNull::new_unchecked(&property_address as *const _ as *mut _ ), 
-            0, 
-            null(), 
-            NonNull::new_unchecked(&data_size as *const _ as *mut _), 
+        let detail_capture_status = AudioObjectGetPropertyData(device_id,
+            NonNull::new_unchecked(&property_address as *const _ as *mut _ ),
+            0,
+            null(),
+            NonNull::new_unchecked(&data_size as *const _ as *mut _),
             NonNull::new_unchecked(&mut details as *mut _ as *mut c_void));
         if detail_capture_status == 0 {
             Ok(details)
@@ -659,7 +666,7 @@ fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescripti
 
 }
 
-#[cfg(target_os="macos")] 
+#[cfg(target_os="macos")]
 fn get_device_name(device_id: u32) -> Result<String, Error> {
     #[cfg(target_os = "macos")]
     {
@@ -708,8 +715,8 @@ mod tests {
         assert_eq!(env::consts::OS, get_os());
     }
 
-    #[test] 
-    
+    #[test]
+
     fn sound_devices() {
         dbg!(get_sound_devices());
         assert!(false);
@@ -738,11 +745,11 @@ mod tests {
     // #[test]
     // #[ignore]
     // fn current_output() {
-    //     dbg!(set_system_volume(0));  
+    //     dbg!(set_system_volume(0));
     //     assert!(false);
     // }
 
-    // #[test] 
+    // #[test]
     // #[ignore]
     // fn sound_devices_cmd() {a
     //     assert_eq!(false, true);
