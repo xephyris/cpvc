@@ -1,6 +1,7 @@
 
 use std::env;
 
+
 #[cfg(target_os="macos")]
 use {
     std::ffi::c_void,
@@ -26,16 +27,8 @@ use {
 #[cfg(target_os="linux")]
 // use alsa::{card, ctl, pcm, mixer::{SelemId, Mixer, SelemChannelId}};
 use {
-    alsa::{ctl, mixer::{SelemId, Mixer, SelemChannelId}},
-    libpulse_binding::{
-        context::Context, 
-        mainloop::standard::Mainloop,
-        proplist::Proplist
-    },
+    alsa::{ctl, mixer::{SelemId, Mixer, SelemChannelId}}
 };
-
-pub mod command;
-pub mod legacy;
 
 
 #[cfg(feature = "debug")]
@@ -147,52 +140,38 @@ pub fn get_sound_devices() -> Vec<String> {
         }
     }
     #[cfg(target_os="linux")] {
-        use std::sync::{Arc, Mutex};
-
-        let mut device_list = Arc::new(Mutex::new(Vec::new()));
-        let mut mainloop = Mainloop::new().expect("Failed to create mainloop");
-        let proplist = Proplist::new().unwrap();
-        let mut context = Context::new_with_proplist(&mainloop, "CPVC", &proplist)
-            .expect("Failed to create connection context");
-
-
-        context.connect(None, libpulse_binding::context::FlagSet::NOFLAGS, None)
-            .expect("Failed to connect context");
-
-        loop {
-            match context.get_state() {
-                libpulse_binding::context::State::Ready => break,
-                libpulse_binding::context::State::Failed | libpulse_binding::context::State::Terminated => {
-                    panic!("Context failed or terminated");
+        // ALSA cannot detect cards that show up in PipeWire
+        // This function records the HW audio devices that are directly connected to the device
+        // Bluetooth devices are handled by PipeWire so they will not appear
+        let control = ctl::Ctl::new("pipewire", false);
+        let mut name = String::from("");
+        match control {
+            Ok(_) => {
+                name.push_str("pipewire");
+            },
+            Err(_) => {
+                let control = Mixer::new("pulse", false);
+                match control {
+                    Ok(_) => {
+                        name.push_str("pulse");
+                    },
+                    Err(_) => {
+                        debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
+                    }
                 }
-                _ => {
-                    mainloop.iterate(false);
-                }
+
             }
-        }
-        let clone = Arc::clone(&device_list);
 
-        let op = context.introspect().get_sink_info_list(move |info | {
-                match info {
-                    libpulse_binding::callbacks::ListResult::Item(device) => {
-                        clone.lock().unwrap().push(device.description.as_ref().unwrap().to_string());
-                    },
-                    libpulse_binding::callbacks::ListResult::End => {
-                        println!("Devices finished")
-                    },
-                    libpulse_binding::callbacks::ListResult::Error => {
-                        eprintln!("error gathering device information");
-                    },
-                }
-            });
-        
-        while op.get_state() == libpulse_binding::operation::State::Running {
-            mainloop.iterate(false);
         }
 
-        mainloop.quit(libpulse_binding::def::Retval(0));
+        let mut count = 0;
+        let mut audio_devices = Vec::new();
+        while let Ok(cdev) = ctl::Ctl::new(&format!("hw:{}", count), false) {
+            audio_devices.push(cdev);
+            count += 1;
+        }
 
-        devices.append(&mut device_list.lock().unwrap());
+        devices.append(&mut audio_devices.into_iter().map(|ctl| ctl.card_info().unwrap().get_mixername().unwrap().to_owned()).collect::<Vec<String>>());
     }
     devices
 }
@@ -729,32 +708,32 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn test_os() {
+    fn test_os_legacy() {
         println!("{}", get_os());
         assert_eq!(env::consts::OS, get_os());
     }
 
     #[test]
 
-    fn sound_devices() {
+    fn sound_devices_legacy() {
         dbg!(get_sound_devices());
         assert!(false);
     }
 
     #[test]
-    fn set_sound_test() {
+    fn set_sound_test_legacy() {
         dbg!(set_system_volume(2));
         assert!(false);
     }
 
     #[test]
-    fn get_sound_test() {
+    fn get_sound_test_legacy() {
         dbg!(get_system_volume());
         assert!(false);
     }
 
     #[test]
-    fn set_mute_test() {
+    fn set_mute_test_legacy() {
         dbg!(set_system_volume(0));
         dbg!(get_system_volume());
         assert!(false);
@@ -788,5 +767,12 @@ mod tests {
         get_output_device_details(capture_output_device_id().unwrap()).unwrap();
         assert!(false);
     }
+
+    #[cfg(target_os="linux")]
+    #[test]
+    fn get_pulse_output_devices() {
+        get_default_output_dev();
+    }
+
 
 }
