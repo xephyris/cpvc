@@ -770,7 +770,7 @@ mod tests {
 
     #[cfg(target_os="linux")]
     #[test]
-    fn get_pulse_output_devices() {
+    fn get_pulse_output_devices_legacy() {
         get_default_output_dev();
     }
 

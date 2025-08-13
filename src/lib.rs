@@ -303,43 +303,60 @@ pub fn get_system_volume() -> u8 {
         }
     }
     #[cfg(target_os="linux")] {
-        let mixer = Mixer::new("pipewire", false);
-        let mut name = String::from("");
-        match mixer {
-            Ok(_) => {
-                name = String::from("pipewire");
-            },
-            Err(_) => {
-                let mixer = Mixer::new("pulse", false);
-                match mixer {
-                    Ok(_) => {
-                        name = String::from("pulse");
+        use std::sync::{Arc, Mutex};
+
+        let volume = Arc::new(Mutex::new(vol));
+        let clone = Arc::clone(&volume);
+
+        let mut mainloop = Mainloop::new().expect("Failed to create mainloop");
+        let proplist = Proplist::new().unwrap();
+        let mut context = Context::new_with_proplist(&mainloop, "CPVC", &proplist)
+            .expect("Failed to create connection context");
+        
+        context.connect(None, libpulse_binding::context::FlagSet::NOFLAGS, None)
+            .expect("Failed to connect context");
+
+        loop {
+            match context.get_state() {
+                libpulse_binding::context::State::Ready => break,
+                libpulse_binding::context::State::Failed | libpulse_binding::context::State::Terminated => {
+                    panic!("Context failed or terminated");
+                }
+                _ => {
+                    mainloop.iterate(false);
+                }
+            }
+        }
+        let op = context.introspect().get_sink_info_list( move |info | {
+                match info {
+                    libpulse_binding::callbacks::ListResult::Item(device) => {
+                        let mut vol_str = device.volume.avg().print().trim().to_string();
+                        vol_str.remove(vol_str.len() - 1);
+                        match vol_str.parse::<u8>() {
+                            Ok(vol) => {
+                                *clone.lock().unwrap() = vol;
+                            },
+                            Err(err) => {
+                                eprintln!("Failed to parse volume string");
+                            }
+                        }
                     },
-                    Err(_) => {
-                        debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
-                    }
+                    libpulse_binding::callbacks::ListResult::End => {
+                        println!("Devices finished")
+                    },
+                    libpulse_binding::callbacks::ListResult::Error => {
+                        eprintln!("error gathering device information");
+                    },
                 }
-
-            }
-
+            });
+        
+        while op.get_state() == libpulse_binding::operation::State::Running {
+            mainloop.iterate(false);
         }
 
-        if name != "" {
-            let mixer = Mixer::new(&name, false).unwrap();
-            let id = SelemId::new("Master", 0);
-            let selem = mixer.find_selem(&id).unwrap();
-            let mut sum = 0;
-            let mut count = 0;
-            let mut citer =  SelemChannelId::all().iter();
-            let factor = selem.get_playback_volume_range().1 - selem.get_playback_volume_range().0;
-            while let Some(channel) = citer.next(){
-                if selem.has_playback_channel(*channel) {
-                    sum += selem.get_playback_volume(*channel).unwrap_or_default();
-                    count += 1;
-                }
-            }
-            vol = (sum as f32 / count as f32 / factor as f32 * 100_f32) as u8;
-        }
+        mainloop.quit(libpulse_binding::def::Retval(0));
+
+        vol = *volume.lock().unwrap();
     }
     vol
 
@@ -561,6 +578,56 @@ pub fn get_default_output_dev() -> String {
             }
         }
     }
+    #[cfg(target_os = "linux")] 
+    {
+        use std::sync::{Arc, Mutex};
+
+        let default_dev = Arc::new(Mutex::new(String::new()));
+        let clone = Arc::clone(&default_dev);
+
+        let mut mainloop = Mainloop::new().expect("Failed to create mainloop");
+        let proplist = Proplist::new().unwrap();
+        let mut context = Context::new_with_proplist(&mainloop, "CPVC", &proplist)
+            .expect("Failed to create connection context");
+        
+        context.connect(None, libpulse_binding::context::FlagSet::NOFLAGS, None)
+            .expect("Failed to connect context");
+
+        loop {
+            match context.get_state() {
+                libpulse_binding::context::State::Ready => break,
+                libpulse_binding::context::State::Failed | libpulse_binding::context::State::Terminated => {
+                    panic!("Context failed or terminated");
+                }
+                _ => {
+                    mainloop.iterate(false);
+                }
+            }
+        }
+        let op = context.introspect().get_sink_info_list( move |info | {
+                match info {
+                    libpulse_binding::callbacks::ListResult::Item(device) => {
+                        if let Some(_) = device.active_port {
+                            *clone.lock().unwrap() = device.description.as_ref().unwrap().to_string();
+                        }
+                    },
+                    libpulse_binding::callbacks::ListResult::End => {
+                        println!("Devices finished")
+                    },
+                    libpulse_binding::callbacks::ListResult::Error => {
+                        eprintln!("error gathering device information");
+                    },
+                }
+            });
+        
+        while op.get_state() == libpulse_binding::operation::State::Running {
+            mainloop.iterate(false);
+        }
+
+        mainloop.quit(libpulse_binding::def::Retval(0));
+
+        device_name = default_dev.lock().unwrap().clone();
+    }
     device_name
 }
 
@@ -646,7 +713,7 @@ fn check_device_type(device_id: u32) -> DeviceType {
     } else {
         DeviceType::None
     }
-
+clone.lock().unwrap() = vol;
 }
 
 #[cfg(target_os="macos")]
@@ -789,4 +856,10 @@ mod tests {
         assert!(false);
     }
 
+    #[cfg(target_os="linux")]
+    #[test]
+    fn get_pulse_output_devices() {
+        println!("{}", get_default_output_dev());
+        assert!(false);
+    }
 }
