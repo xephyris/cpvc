@@ -160,7 +160,7 @@ pub fn get_sound_devices() -> Vec<String> {
     #[cfg(target_os="linux")] {
         use std::sync::{Arc, Mutex};
 
-        let mut device_list = Arc::new(Mutex::new(Vec::new()));
+        let device_list = Arc::new(Mutex::new(Vec::new()));
         let mut mainloop = Mainloop::new().expect("Failed to create mainloop");
         let proplist = Proplist::new().unwrap();
         let mut context = Context::new_with_proplist(&mainloop, "CPVC", &proplist)
@@ -341,14 +341,18 @@ pub fn get_system_volume() -> u8 {
         let op = context.introspect().get_sink_info_list( move |info | {
                 match info {
                     libpulse_binding::callbacks::ListResult::Item(device) => {
-                        let mut vol_str = device.volume.avg().print().trim().to_string();
-                        vol_str.remove(vol_str.len() - 1);
-                        match vol_str.parse::<u8>() {
-                            Ok(vol) => {
-                                *clone.lock().unwrap() = vol;
-                            },
-                            Err(err) => {
-                                debug_eprintln("Failed to parse volume string");
+                        if device.mute {
+                            *clone.lock().unwrap() = 0;
+                        } else {
+                            let mut vol_str = device.volume.avg().print().trim().to_string();
+                            vol_str.remove(vol_str.len() - 1);
+                            match vol_str.parse::<u8>() {
+                                Ok(vol) => {
+                                    *clone.lock().unwrap() = vol;
+                                },
+                                Err(err) => {
+                                    debug_eprintln(&format!("Failed to parse volume string {}", err));
+                                }
                             }
                         }
                     },
@@ -501,8 +505,6 @@ pub fn set_system_volume(percent: u8) -> bool {
     #[cfg(target_os="linux")] {
 
         use std::sync::{Arc, Mutex};
-
-        let status = Arc::new(Mutex::new(success));
         
         let vol_channels = Arc::new(Mutex::new(None));
         let clone = Arc::clone(&vol_channels);
@@ -553,18 +555,21 @@ pub fn set_system_volume(percent: u8) -> bool {
         }
 
         if let Some((index, volume)) = vol_channels.lock().unwrap().take() {
-            let vol_runner = context.introspect().set_sink_volume_by_index(index, &volume, Some(Box::new(move |state| { success = Some(state);})));
-                                
+            let vol_runner;
+            if percent == 0 {
+                vol_runner = context.introspect().set_sink_mute_by_index(index, true, None);
+            } else {
+                vol_runner = context.introspect().set_sink_volume_by_index(index, &volume, None);
+            }             
             while vol_runner.get_state() == libpulse_binding::operation::State::Running {
                 mainloop.iterate(false);
+                success = Some(true);
             }
         } else {
             success = Some(false);
         }
 
         mainloop.quit(libpulse_binding::def::Retval(0));
-
-        success = *status.lock().unwrap();
 
     }
 
