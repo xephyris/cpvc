@@ -757,7 +757,6 @@ fn check_device_type(device_id: u32) -> DeviceType {
     } else {
         DeviceType::None
     }
-clone.lock().unwrap() = vol;
 }
 
 #[cfg(target_os="macos")]
