@@ -74,6 +74,7 @@ dependencies = [
  "alsa",
  "core-foundation",
  "libpulse-binding",
+ "libpulse-sys",
  "objc2-core-audio",
  "objc2-core-audio-types",
  "windows",

@@ -43,8 +43,18 @@ fn debug_eprintln(message: &str){
     eprintln!("{}", message);
 }
 
+#[cfg(feature = "debug")]
+fn debug_println(message: &str) {
+    println!("{}", message);
+}
+
 #[cfg(not(feature = "debug"))]
 fn debug_eprintln(_: &str){
+
+}
+
+#[cfg(not(feature = "debug"))]
+fn debug_println(_: &str) {
 
 }
 
@@ -61,6 +71,7 @@ enum Error {
     DeviceDetailsCaptureError,
     NameCaptureError,
 }
+
 
 pub fn get_sound_devices() -> Vec<String> {
     let mut devices:Vec<String> = Vec::new();
@@ -178,10 +189,10 @@ pub fn get_sound_devices() -> Vec<String> {
                         clone.lock().unwrap().push(device.description.as_ref().unwrap().to_string());
                     },
                     libpulse_binding::callbacks::ListResult::End => {
-                        println!("Devices finished")
+                        debug_println("Devices finished");
                     },
                     libpulse_binding::callbacks::ListResult::Error => {
-                        eprintln!("error gathering device information");
+                        debug_eprintln("error gathering device information");
                     },
                 }
             });
@@ -337,15 +348,15 @@ pub fn get_system_volume() -> u8 {
                                 *clone.lock().unwrap() = vol;
                             },
                             Err(err) => {
-                                eprintln!("Failed to parse volume string");
+                                debug_eprintln("Failed to parse volume string");
                             }
                         }
                     },
                     libpulse_binding::callbacks::ListResult::End => {
-                        println!("Devices finished")
+                        debug_println("Devices finished")
                     },
                     libpulse_binding::callbacks::ListResult::Error => {
-                        eprintln!("error gathering device information");
+                        debug_eprintln("error gathering device information");
                     },
                 }
             });
@@ -488,47 +499,75 @@ pub fn set_system_volume(percent: u8) -> bool {
         success.replace(true);
     }
     #[cfg(target_os="linux")] {
-        let mixer = Mixer::new("pipewire", false);
-        let mut name = String::from("");
-        match mixer {
-            Ok(_) => {
-                name = String::from("pipewire");
-            },
-            Err(_) => {
-                let mixer = Mixer::new("pulse", false);
-                match mixer {
-                    Ok(_) => {
-                        name = String::from("pulse");
-                    },
-                    Err(_) => {
-                        debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
-                    }
-                }
 
+        use std::sync::{Arc, Mutex};
+
+        let status = Arc::new(Mutex::new(success));
+        
+        let vol_channels = Arc::new(Mutex::new(None));
+        let clone = Arc::clone(&vol_channels);
+
+        let mut mainloop = Mainloop::new().expect("Failed to create mainloop");
+        let proplist = Proplist::new().unwrap();
+        let mut context = Context::new_with_proplist(&mainloop, "CPVC", &proplist)
+            .expect("Failed to create connection context");
+        
+        context.connect(None, libpulse_binding::context::FlagSet::NOFLAGS, None)
+            .expect("Failed to connect context");
+
+        loop {
+            match context.get_state() {
+                libpulse_binding::context::State::Ready => break,
+                libpulse_binding::context::State::Failed | libpulse_binding::context::State::Terminated => {
+                    panic!("Context failed or terminated");
+                }
+                _ => {
+                    mainloop.iterate(false);
+                }
             }
         }
-
-        if name != "" {
-            let mixer = Mixer::new(&name, false).unwrap();
-            let id = SelemId::new("Master", 0);
-            let selem = mixer.find_selem(&id).unwrap();
-            let mut citer =  SelemChannelId::all().iter();
-            let factor = selem.get_playback_volume_range().1 - selem.get_playback_volume_range().0;
-
-            while let Some(channel) = citer.next(){
-                if selem.has_playback_channel(*channel) {
-                    match selem.set_playback_volume(*channel, percent as i64 * factor / 100) {
-                        Ok(_) => {
-                            success.replace(true);
-                        },
-                        Err(error) => {
-                            eprintln!("failed to set volume of channel {channel}: {error}");
+        let op = context.introspect().get_sink_info_list( move |info | {
+                match info {
+                    libpulse_binding::callbacks::ListResult::Item(device) => {
+                        if let Some(_) = device.active_port {
+                            use libpulse_binding::volume::{Volume};
+                            use libpulse_sys::volume::PA_VOLUME_NORM;
+                            let vol = Volume(percent as u32 * PA_VOLUME_NORM / 100);
+                            let mut channel_vols = device.volume;
+                            channel_vols.set(device.sample_spec.channels, vol.into());
+                            clone.lock().unwrap().replace((device.index, channel_vols));
                         }
-                    };
+                    },
+                    libpulse_binding::callbacks::ListResult::End => {
+                        debug_println("channel volume aquired");
+                    },
+                    libpulse_binding::callbacks::ListResult::Error => {
+                        debug_eprintln("error gathering device information");    
+                    },
                 }
-            }
+            });
+
+        
+        while op.get_state() == libpulse_binding::operation::State::Running {
+            mainloop.iterate(false);
         }
+
+        if let Some((index, volume)) = vol_channels.lock().unwrap().take() {
+            let vol_runner = context.introspect().set_sink_volume_by_index(index, &volume, Some(Box::new(move |state| { success = Some(state);})));
+                                
+            while vol_runner.get_state() == libpulse_binding::operation::State::Running {
+                mainloop.iterate(false);
+            }
+        } else {
+            success = Some(false);
+        }
+
+        mainloop.quit(libpulse_binding::def::Retval(0));
+
+        success = *status.lock().unwrap();
+
     }
+
     success.unwrap_or(false)
 }
 
@@ -612,10 +651,10 @@ pub fn get_default_output_dev() -> String {
                         }
                     },
                     libpulse_binding::callbacks::ListResult::End => {
-                        println!("Devices finished")
+                        debug_println("Devices finished")
                     },
                     libpulse_binding::callbacks::ListResult::Error => {
-                        eprintln!("error gathering device information");
+                        debug_eprintln("error gathering device information");
                     },
                 }
             });

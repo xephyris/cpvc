@@ -11,7 +11,6 @@ authors = ["xephyris"]
 edition = "2024"
 
 [dependencies]
-libpulse-binding = "2.30.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61.3", features = ["Win32", "Win32_Media", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System", 
@@ -22,6 +21,8 @@ windows = { version = "0.61.3", features = ["Win32", "Win32_Media", "Win32_Media
 
 [target.'cfg(target_os = "linux")'.dependencies]
 alsa = "0.9.1"
+libpulse-binding = "2.30.1"
+libpulse-sys = "1.23.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10.1"

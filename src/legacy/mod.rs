@@ -720,11 +720,11 @@ mod tests {
         assert!(false);
     }
 
-    #[test]
-    fn set_sound_test_legacy() {
-        dbg!(set_system_volume(2));
-        assert!(false);
-    }
+    // #[test]
+    // fn set_sound_test_legacy() {
+    //     dbg!(set_system_volume(2));
+    //     assert!(false);
+    // }
 
     #[test]
     fn get_sound_test_legacy() {
