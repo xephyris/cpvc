@@ -1,3 +1,29 @@
+//! `cpvc` is a simple cross-platform audio control crate
+//! 
+//! Currently, cpvc supports the following platforms
+//! * macOS
+//! * Windows
+//! * Linux (`pulse_audio` only)
+//!
+//! # Controls Example
+//!
+//! ```rust,
+//! fn main() {
+//!     
+//!     // Gets current system output device names (human readable ones)
+//!     let devices: Vec<String> = cpvc::get_sound_devices();
+//! 
+//!     // Get current system volume for default output in %
+//!     let current_volume: u8 = cpvc::get_system_volume();
+//! 
+//!     // Set system volume for default output in %
+//!     let volume: u8 = 32;
+//!     let success = cpvc::set_system_volume(volume);
+//!     
+//!     // Mute default output
+//!     let success = cpvc::set_system_volume(0);
+//! }
+//! ```
 
 use std::env;
 
