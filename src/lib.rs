@@ -99,6 +99,8 @@ enum Error {
 }
 
 
+
+/// Gathers the human readable device name of each output device detected
 pub fn get_sound_devices() -> Vec<String> {
     let mut devices:Vec<String> = Vec::new();
     #[cfg(target_os="macos")] {
@@ -234,6 +236,7 @@ pub fn get_sound_devices() -> Vec<String> {
     devices
 }
 
+/// Gathers the current volume in percent of the default output device
 pub fn get_system_volume() -> u8 {
     #[allow(unused_assignments)]
     let mut vol: u8 = 0;
@@ -404,7 +407,7 @@ pub fn get_system_volume() -> u8 {
 }
 
 
-
+/// Sets the current volume in percent of the default output device
 pub fn set_system_volume(percent: u8) -> bool {
     #[allow(unused_assignments)]
     let mut success = None;
