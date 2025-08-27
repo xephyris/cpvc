@@ -408,10 +408,13 @@ pub fn get_system_volume() -> u8 {
 
 
 /// Sets the current volume in percent of the default output device
+/// ## On macOS
+/// `cpvc` needs to mute and unmute the audio device to get the hardware device volume to sync 
 pub fn set_system_volume(percent: u8) -> bool {
     #[allow(unused_assignments)]
     let mut success = None;
     #[cfg(target_os="macos")]{
+
         let captured_device_id = capture_output_device_id();
         if captured_device_id.is_ok() {
             let device_id = captured_device_id.unwrap();
