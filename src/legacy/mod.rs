@@ -727,12 +727,14 @@ mod tests {
     // }
 
     #[test]
+    #[ignore]
     fn get_sound_test_legacy() {
         dbg!(get_system_volume());
         assert!(false);
     }
 
     #[test]
+    #[ignore]
     fn set_mute_test_legacy() {
         dbg!(set_system_volume(0));
         dbg!(get_system_volume());

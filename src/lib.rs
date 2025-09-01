@@ -511,29 +511,6 @@ pub fn set_system_volume(percent: u8) -> bool {
         }
         success.replace(true);
     }
-    #[cfg(target_os="windows")] {
-        use windows::Win32::System::Com::CLSCTX_ALL;
-        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
-        use std::ptr;
-
-        let device = get_default_output_device();
-        unsafe {
-            let volume_controls = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None).unwrap();
-            if volume_controls.GetMute().unwrap().into() {
-                volume_controls.SetMute(false, ptr::null()).unwrap();
-            }
-
-            let channel_count = volume_controls.GetChannelCount().unwrap();
-            for channel in 0..channel_count {
-                volume_controls.SetChannelVolumeLevelScalar(channel, percent as f32 / 100.0, ptr::null()).unwrap();
-            }
-
-            if percent == 0 {
-                volume_controls.SetMute(true, ptr::null()).unwrap();
-            }
-        }
-        success.replace(true);
-    }
     #[cfg(target_os="linux")] {
 
         use std::sync::{Arc, Mutex};
@@ -606,6 +583,40 @@ pub fn set_system_volume(percent: u8) -> bool {
     }
 
     success.unwrap_or(false)
+}
+
+pub fn set_mute(mute: bool) -> bool {
+    let mut status = false;
+    #[cfg(target_os="macos")] {
+        let captured_device_id = capture_output_device_id();
+        if captured_device_id.is_ok() {
+            let device_id = captured_device_id.unwrap();
+            let mute_property_address = AudioObjectPropertyAddress {
+                        mSelector: kAudioDevicePropertyMute,
+                        mScope: kAudioDevicePropertyScopeOutput,
+                        mElement: kAudioObjectPropertyElementMain
+                    };
+            let mute_data_size = size_of::<u32>() as u32;
+            let mute = match mute {
+                true => {
+                    1
+                },
+                false => {
+                    0
+                }
+            };
+            unsafe {
+                let mute_status = AudioObjectSetPropertyData(device_id,
+                    NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
+                    0, null(),
+                    mute_data_size, NonNull::new_unchecked(&mute as *const _ as *mut _));
+                if mute_status != 0 {
+                    status = false;
+                }
+            }
+        }
+    }
+    status
 }
 
 #[cfg(target_os="windows")]
@@ -897,30 +908,11 @@ mod tests {
 
     #[test]
     fn set_mute_test() {
-        dbg!(set_system_volume(0));
+        dbg!(set_mute(false));
         dbg!(get_system_volume());
         assert!(false);
     }
 
-
-    // #[test]
-    // #[ignore]
-    // fn current_output() {
-    //     dbg!(set_system_volume(0));
-    //     assert!(false);
-    // }
-
-    // #[test]
-    // #[ignore]
-    // fn sound_devices_cmd() {a
-    //     assert_eq!(false, true);
-    // }
-
-    // #[test]
-    // #[ignore]
-    // fn current_output_cmd() {
-    //     assert!(command::set_system_volume_command(24));
-    // }
 
     #[cfg(target_os="macos")]
     #[test]
