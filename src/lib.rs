@@ -92,7 +92,7 @@ enum DeviceType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Error {
+enum VolumeError {
     OutputDeviceCaptureError,
     DeviceDetailsCaptureError,
     NameCaptureError,
@@ -619,6 +619,39 @@ pub fn set_mute(mute: bool) -> bool {
     status
 }
 
+pub fn get_mute() -> bool {
+    let mute = 0;
+    #[cfg(target_os="macos")] {
+        let captured_device_id = capture_output_device_id();
+        if captured_device_id.is_ok() {
+            let device_id = captured_device_id.unwrap();
+            let mut mute_property_address = AudioObjectPropertyAddress {
+                        mSelector: kAudioDevicePropertyMute,
+                        mScope: kAudioDevicePropertyScopeOutput,
+                        mElement: kAudioObjectPropertyElementMain
+                    };
+            let mut mute_data_size = size_of::<u32>() as u32;
+            unsafe {
+                let mute_status = AudioObjectGetPropertyData(device_id,
+                    NonNull::new_unchecked(&mut mute_property_address as *mut _),
+                    0, null(),
+                    NonNull::new_unchecked(&mut mute_data_size as *mut _), NonNull::new_unchecked(&mute as *const _ as *mut _));
+                if mute_status != 0{
+                    debug_eprintln("failed to gather mute status");
+                }
+            }
+        }
+    }
+    match mute {
+        1 => {
+            true
+        }
+        _ => {
+            false
+        }
+    }
+}
+
 #[cfg(target_os="windows")]
 fn get_default_output_device() -> windows::Win32::Media::Audio::IMMDevice {
     use windows::Win32::Media::Audio::{eRender, eMultimedia};
@@ -719,7 +752,7 @@ pub fn get_default_output_dev() -> String {
 }
 
 #[cfg(target_os = "macos")]
-fn capture_output_device_id() -> Result<u32, Error> {
+fn capture_output_device_id() -> Result<u32, VolumeError> {
     unsafe {
         // Attempt to Capture Device ID of Default Audio Output Device
         let output_device_address = AudioObjectPropertyAddress {
@@ -743,7 +776,7 @@ fn capture_output_device_id() -> Result<u32, Error> {
         if capture_output_status == 0 {
             Ok(device_id)
         } else {
-            Err(Error::OutputDeviceCaptureError)
+            Err(VolumeError::OutputDeviceCaptureError)
         }
     }
 
@@ -803,7 +836,7 @@ fn check_device_type(device_id: u32) -> DeviceType {
 }
 
 #[cfg(target_os="macos")]
-fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescription, Error> {
+fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescription, VolumeError> {
     let property_address = AudioObjectPropertyAddress{
         mSelector: kAudioDevicePropertyStreamFormat,
         mScope: kAudioObjectPropertyScopeOutput,
@@ -831,7 +864,7 @@ fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescripti
         if detail_capture_status == 0 {
             Ok(details)
         } else {
-            Err(Error::DeviceDetailsCaptureError)
+            Err(VolumeError::DeviceDetailsCaptureError)
         }
     }
 
@@ -839,7 +872,7 @@ fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescripti
 }
 
 #[cfg(target_os="macos")]
-fn get_device_name(device_id: u32) -> Result<String, Error> {
+fn get_device_name(device_id: u32) -> Result<String, VolumeError> {
     #[cfg(target_os = "macos")]
     {
         let property_address = AudioObjectPropertyAddress {
@@ -862,7 +895,7 @@ fn get_device_name(device_id: u32) -> Result<String, Error> {
                 Ok(CFString::wrap_under_get_rule(name).to_string())
             } else {
                 debug_eprintln(&format!("Failed to get device name. Status: {}", status));
-                Err(Error::NameCaptureError)
+                Err(VolumeError::NameCaptureError)
             }
         }
     }
@@ -909,6 +942,13 @@ mod tests {
     #[test]
     fn set_mute_test() {
         dbg!(set_mute(false));
+        dbg!(get_system_volume());
+        assert!(false);
+    }
+
+    #[test]
+    fn get_mute_status() {
+        dbg!(get_mute());
         dbg!(get_system_volume());
         assert!(false);
     }
