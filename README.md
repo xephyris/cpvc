@@ -16,7 +16,7 @@ Basic cross platform crate for interacting with Audio Devices and handling Syste
 
 ## Tested/Worked On
 * macOS:
-   * Sequoia 15.3
+   * Sequoia 15.5
 
 * Windows:
     * Windows 11 24H2
