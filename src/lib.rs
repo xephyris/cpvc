@@ -25,6 +25,8 @@
 //! }
 //! ```
 
+// TODO change unwrap() to better error handling method
+
 use std::env;
 
 #[cfg(target_os="macos")]
@@ -616,11 +618,31 @@ pub fn set_mute(mute: bool) -> bool {
             }
         }
     }
+    #[cfg(target_os="windows")]
+    {
+        use windows::Win32::System::Com::CLSCTX_ALL;
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use std::ptr;
+
+        let device = get_default_output_device();
+        unsafe {
+            let volume_controls = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None).unwrap();
+            match volume_controls.SetMute(mute, ptr::null()) {
+                Ok(_) => {
+                    status = true;
+                }
+                Err(e) => {
+                    debug_eprintln(&format!("Error setting mute status {}", e));
+                }
+            }
+        
+        }
+    }
     status
 }
 
 pub fn get_mute() -> bool {
-    let mute = 0;
+    let mut mute = 0;
     #[cfg(target_os="macos")] {
         let captured_device_id = capture_output_device_id();
         if captured_device_id.is_ok() {
@@ -640,6 +662,18 @@ pub fn get_mute() -> bool {
                     debug_eprintln("failed to gather mute status");
                 }
             }
+        }
+    }
+    #[cfg(target_os="windows")] {
+        use windows::Win32::System::Com::CLSCTX_ALL;
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        let device = get_default_output_device();
+        unsafe {
+            let volume_controls = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None).unwrap();
+            if volume_controls.GetMute().unwrap().into() {
+               mute = 1;
+            }
+        
         }
     }
     match mute {
