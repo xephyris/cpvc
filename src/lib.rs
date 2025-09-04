@@ -64,6 +64,7 @@ use {
 
 pub mod command;
 pub mod legacy;
+pub mod device;
 
 
 #[cfg(feature = "debug")]
