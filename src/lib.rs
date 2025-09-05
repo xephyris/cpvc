@@ -1046,6 +1046,62 @@ fn get_device_name(device_id: u32) -> Result<String, VolumeError> {
 
 }
 
+#[cfg(target_os="macos")]
+fn get_hw_name(device_id: u32) -> Result<String, VolumeError> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_core_audio::kAudioDevicePropertyDeviceName;
+
+        let property_address = AudioObjectPropertyAddress {
+            mSelector: kAudioDevicePropertyDeviceName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain,
+        };
+        unsafe{
+            
+            let data_size = size_of::<u32>() as u32;
+            let size_status = AudioObjectGetPropertyDataSize(
+                    device_id,
+                    NonNull::new_unchecked(&property_address as *const _ as *mut _),
+                    0,
+                    null(),
+                    NonNull::new_unchecked(&data_size as *const _ as *mut _),
+            );
+            if size_status == 0 {
+                let mut hw_name= Vec::new();
+                hw_name.resize(data_size as usize, 0);
+                let status = AudioObjectGetPropertyData(
+                        device_id,
+                        NonNull::new_unchecked(&property_address as *const _ as *mut _),
+                        0,
+                        null(),
+                        NonNull::new_unchecked(&data_size as *const _ as *mut _),
+                        NonNull::new_unchecked(hw_name.as_mut_ptr() as *mut _),
+                    );
+                if status == 0 {
+                    match String::from_utf8(hw_name) {
+                        Ok(name) => {
+                            dbg!(name.clone());
+                            Ok(name)
+                        },
+                        Err(e) => {
+                            debug_eprintln(&format!("Failed to get device name. Error: {}", e));
+                            Err(VolumeError::NameCaptureError)
+                        }
+                    }
+                } else {
+                    debug_eprintln(&format!("Failed to get device name. Status: {}", status));
+                    Err(VolumeError::NameCaptureError)
+                }
+            } else {
+                Err(VolumeError::NameCaptureError)
+            }
+        }
+    }
+
+}
+
+
 pub fn get_os() -> String {
     println!("{}", env::consts::OS);
     env::consts::OS.to_string()
@@ -1095,6 +1151,13 @@ mod tests {
         dbg!(get_mute());
         dbg!(get_system_volume());
         assert!(false);
+    }
+
+    #[cfg(target_os="macos")] 
+    #[test]
+    fn get_dev_hw_name() {
+        dbg!(get_hw_name(capture_output_device_id().unwrap()));
+        assert!(false)
     }
 
 
