@@ -34,6 +34,8 @@ impl AudioDevice {
                     hw_name: device_name,
                     channels
                 });
+            } else {
+                return Err(Error::DeviceCaptureFailed);
             }
         }
 
@@ -49,13 +51,15 @@ impl AudioDevice {
             let name = get_device_name(device_id);
             if name.is_ok() {
                 device_name.push_str(&name.unwrap());
+            } else {
+                return Err(Error::DeviceDetailsCaptureFailed);
             }
             
             let device_stats = get_output_device_details(device_id);
             if let Ok(stats) = device_stats {
                 channels = stats.mChannelsPerFrame;
             } else {
-                channels = 0;
+                return Err(Error::DeviceDetailsCaptureFailed);
             }
             return Ok(AudioDevice {
                 device_name: device_name.clone(),
@@ -63,9 +67,8 @@ impl AudioDevice {
                 hw_name: device_name,
                 channels
             });
-
-            Err(Error::UnsupportedOS)
         }
+        Err(Error::UnsupportedOS)
     }
 
     pub fn get_device_from_name(name: String) -> Result<AudioDevice, Error> {
@@ -78,13 +81,15 @@ impl AudioDevice {
                 let name = get_device_name(device_id);
                 if name.is_ok() {
                     device_name.push_str(&name.unwrap());
+                } else {
+                    return Err(Error::DeviceDetailsCaptureFailed);
                 }
                 
                 let device_stats = get_output_device_details(device_id);
                 if let Ok(stats) = device_stats {
                     channels = stats.mChannelsPerFrame;
                 } else {
-                    channels = 0;
+                    return Err(Error::DeviceDetailsCaptureFailed);
                 }
                 return Ok(AudioDevice {
                     device_name: device_name.clone(),
@@ -93,8 +98,9 @@ impl AudioDevice {
                     channels
                 });
             }
-            Err(Error::UnsupportedOS)
+            
         }
+        Err(Error::UnsupportedOS)
     }
 
 
@@ -102,7 +108,9 @@ impl AudioDevice {
 
 #[derive(Debug)]
 pub enum Error {
-    UnsupportedOS
+    UnsupportedOS,
+    DeviceCaptureFailed,
+    DeviceDetailsCaptureFailed,
 }
 
 #[cfg(test)]
