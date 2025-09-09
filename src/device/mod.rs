@@ -66,7 +66,7 @@ impl AudioDevice {
             if name.is_ok() {
                 device_name.push_str(&name.unwrap());
             } else {
-                return Err(Error::DeviceDetailsCaptureFailed);
+                return Err(Error::DeviceNotFound);
             }
             
             let device_stats = get_output_device_details(device_id);
@@ -82,6 +82,7 @@ impl AudioDevice {
                 channels,
                 vol_ctl: VolControl::new(device_id, channels)
             });
+
         }
         Err(Error::UnsupportedOS)
     }
@@ -114,7 +115,7 @@ impl AudioDevice {
                     vol_ctl: VolControl::new(device_id, channels)
                 });
             }
-            
+            return Err(Error::DeviceNotFound);        
         }
         Err(Error::UnsupportedOS)
     }
