@@ -253,6 +253,68 @@ impl VolControl {
         }
         vol.into()
     }
+    pub fn set_mute(&self, mute: bool) -> bool {
+        let mut status = false;
+        #[cfg(target_os="macos")] {
+            let mute_property_address = AudioObjectPropertyAddress {
+                        mSelector: kAudioDevicePropertyMute,
+                        mScope: kAudioDevicePropertyScopeOutput,
+                        mElement: kAudioObjectPropertyElementMain
+                    };
+            let mute_data_size = size_of::<u32>() as u32;
+            let mute = match mute {
+                true => {
+                    1
+                },
+                false => {
+                    0
+                }
+            };
+            unsafe {
+                use std::ptr::{NonNull, null};
+                let mute_status = AudioObjectSetPropertyData(self.hw_id,
+                    NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
+                    0, null(),
+                    mute_data_size, NonNull::new_unchecked(&mute as *const _ as *mut _));
+                if mute_status != 0 {
+                    status = false;
+                }
+            }
+        }
+        status
+    }
+
+     pub fn is_mute(&self) -> Result<bool, VolumeError> {
+        let mut mute:u32 = 0;
+        #[cfg(target_os="macos")] {
+            let mute_property_address = AudioObjectPropertyAddress {
+                        mSelector: kAudioDevicePropertyMute,
+                        mScope: kAudioDevicePropertyScopeOutput,
+                        mElement: kAudioObjectPropertyElementMain
+                    };
+            let mut mute_data_size = size_of::<u32>() as u32;
+
+            unsafe {
+                use std::ptr::{NonNull, null};
+                let mute_status = AudioObjectGetPropertyData(self.hw_id,
+                    NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
+                    0, null(),
+                    NonNull::new_unchecked(&mut mute_data_size as *mut _), 
+                    NonNull::new_unchecked(&mut mute as *mut _ as *mut _));
+                if mute_status != 0 {
+                    return Err(VolumeError::MuteStatusCaptureFailed);
+                }
+            }
+        }
+        Ok(match mute {
+            1 => {
+                true
+            }
+            _ => {
+                false
+            }
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -261,6 +323,11 @@ pub enum Error {
     DeviceCaptureFailed,
     DeviceDetailsCaptureFailed,
     DeviceNotFound,
+}
+
+#[derive(Debug)]
+pub enum VolumeError {
+    MuteStatusCaptureFailed,
 }
 
 #[cfg(test)]
@@ -279,6 +346,17 @@ mod tests {
         let device = AudioDevice::get_device_from_name("Mac mini Speakers".to_string()).unwrap();
         let mut vol_ctl = device.default_volume_control();
         dbg!(vol_ctl.get_vol());
+        dbg!(device);
+        assert!(false);
+    }
+
+    #[test]
+    fn check_muted() {
+        // let device = AudioDevice::get_device_from_name("Mac mini Speakers".to_string()).unwrap();
+        let device = AudioDevice::get_default_device().unwrap();
+        let mut vol_ctl = device.default_volume_control();
+        dbg!(vol_ctl.is_mute());
+        dbg!(vol_ctl.set_mute(true));
         dbg!(device);
         assert!(false);
     }
