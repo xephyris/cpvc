@@ -67,6 +67,8 @@ pub mod legacy;
 pub mod device;
 pub mod scan;
 
+pub mod cpal;
+
 
 #[cfg(feature = "debug")]
 fn debug_eprintln(message: &str){
