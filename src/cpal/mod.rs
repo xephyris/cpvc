@@ -53,7 +53,7 @@ impl VolControl {
         VolControl { hw_id, channels }
     }
 
-    pub fn set_vol(&self, val: f32) -> bool {
+    pub fn set_vol(&self, val: f32) -> Result<(), VolumeError> {
         let mut success = Some(false);
         #[cfg(target_os="macos")]{
             use std::ptr::{null, NonNull};
@@ -100,11 +100,22 @@ impl VolControl {
                     }
                 }
             }
-            if success.is_none() {
-                success.replace(sync_status);
+            if sync_status == false {
+                return Err(VolumeError::VolumeChangeError)
             }
         }
-        success.unwrap_or(false)
+        match success.take() {
+            Some(value) => {
+                if value {
+                    return Ok(());
+                } else {
+                    return Err(VolumeError::VolumeChangeError);
+                }
+            },
+            None => {
+                return Err(VolumeError::VolumeChangeError)
+            }
+        }
     }
     pub fn get_vol(&self) -> f32 {
         let mut vol = 0.0;
@@ -232,7 +243,8 @@ pub enum VolumeError {
     MuteStatusCaptureFailed,
     UnsupportedOS,
     ChannelCountCaptureError,
-    DeviceNotFound
+    DeviceNotFound,
+    VolumeChangeError,
 }
 
 #[cfg(test)]
