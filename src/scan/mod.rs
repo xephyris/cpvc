@@ -1,9 +1,11 @@
+#[cfg(target_os="macos")]
 use {
     objc2_core_audio::{
         kAudioDevicePropertyDeviceNameCFString, kAudioDevicePropertyMute, kAudioDevicePropertyScopeOutput, kAudioDevicePropertyStreamFormat, kAudioDevicePropertyStreams, kAudioDevicePropertyVolumeScalar, kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices, kAudioObjectPropertyElementMain, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyScopeInput, kAudioObjectPropertyScopeOutput, kAudioObjectSystemObject, AudioObjectGetPropertyData, AudioObjectGetPropertyDataSize, AudioObjectID, AudioObjectPropertyAddress, AudioObjectSetPropertyData
-    }, objc2_core_audio_types::AudioStreamBasicDescription, std::{collections::HashMap, ffi::c_void, ptr::{null, NonNull}}
+    }, objc2_core_audio_types::AudioStreamBasicDescription, 
 };
 
+use std::{collections::HashMap, ffi::c_void, ptr::{null, NonNull}};
 
 
 // TODO Change to iterator for AudioDevice?

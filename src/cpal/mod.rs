@@ -1,5 +1,6 @@
 pub use cpal::*;
 
+#[cfg(target_os="macos")]
 use objc2_core_audio::{
         AudioObjectGetPropertyData, AudioObjectSetPropertyData, AudioObjectGetPropertyDataSize,
         AudioObjectID, AudioObjectPropertyAddress,
