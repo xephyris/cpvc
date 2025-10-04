@@ -15,11 +15,11 @@ use objc2_core_audio::{
 use crate::debug_eprintln;
 
 pub trait VolumeControlExt {
-    fn defeault_volume_control(&self) -> Result<VolControl, VolumeError>;
+    fn default_volume_control(&self) -> Result<VolControl, VolumeError>;
 }
 
 impl VolumeControlExt for cpal::Device {
-    fn defeault_volume_control(&self) -> Result<VolControl, VolumeError> {
+    fn default_volume_control(&self) -> Result<VolControl, VolumeError> {
          #[cfg(target_os="macos")] {
             use cpal::traits::DeviceTrait;
 
@@ -250,6 +250,8 @@ pub enum VolumeError {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use cpal::traits::HostTrait;
 
     use crate::cpal::VolumeControlExt;
@@ -261,6 +263,7 @@ mod tests {
         let host = cpal::default_host();
         let device = host.default_output_device().expect("no output device available");
         println!("{}", device.name().unwrap());
+        println!("{}", device.id().unwrap());
         assert!(false);
     }
 
@@ -271,9 +274,20 @@ mod tests {
         let host = cpal::default_host();
         let device = host.default_output_device().expect("no output device available");
         println!("{}", device.name().unwrap());
-        let vol_control =  device.defeault_volume_control().unwrap();
+        let vol_control =  device.default_volume_control().unwrap();
         dbg!(vol_control.set_vol(0.20));
-        println!("{:?}", device.defeault_volume_control().unwrap());
+        println!("{:?}", device.default_volume_control().unwrap());
+        assert!(false);
+    }
+
+    #[test]
+    fn cpal_from_uid() {
+        use cpal::traits::{HostTrait, DeviceTrait};
+        let host = cpal::default_host();
+        let device = host.default_output_device().unwrap();
+        let vol_control =  device.default_volume_control().unwrap();
+        dbg!(vol_control.set_vol(0.20));
+        println!("{:?}", device.default_volume_control().unwrap());
         assert!(false);
     }
     
