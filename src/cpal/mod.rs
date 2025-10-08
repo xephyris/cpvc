@@ -252,7 +252,7 @@ pub enum VolumeError {
 mod tests {
     use std::str::FromStr;
 
-    use cpal::traits::HostTrait;
+    use cpal::traits::{DeviceTrait, HostTrait};
 
     use crate::cpal::VolumeControlExt;
 
@@ -278,6 +278,15 @@ mod tests {
         dbg!(vol_control.set_vol(0.20));
         println!("{:?}", device.default_volume_control().unwrap());
         assert!(false);
+    }
+
+    #[test]
+    fn cpal_devices() {
+        let host = cpal::default_host();
+        for device in host.devices().unwrap() {
+            println!("{}", device.name().unwrap_or_default());
+            println!("{:?}", device.id().unwrap());
+        }
     }
 
     #[test]
