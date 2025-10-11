@@ -263,7 +263,6 @@ mod tests {
         let host = cpal::default_host();
         let device = host.default_output_device().expect("no output device available");
         println!("{}", device.name().unwrap());
-        println!("{}", device.id().unwrap());
         assert!(false);
     }
 
@@ -276,6 +275,7 @@ mod tests {
         println!("{}", device.name().unwrap());
         let vol_control =  device.default_volume_control().unwrap();
         dbg!(vol_control.set_vol(0.20));
+        dbg!(vol_control.get_vol());
         println!("{:?}", device.default_volume_control().unwrap());
         assert!(false);
     }
@@ -289,15 +289,15 @@ mod tests {
         }
     }
 
-    #[test]
-    fn cpal_from_uid() {
-        use cpal::traits::{HostTrait, DeviceTrait};
-        let host = cpal::default_host();
-        let device = host.default_output_device().unwrap();
-        let vol_control =  device.default_volume_control().unwrap();
-        dbg!(vol_control.set_vol(0.20));
-        println!("{:?}", device.default_volume_control().unwrap());
-        assert!(false);
-    }
+    // #[test]
+    // fn cpal_from_uid() {
+    //     use cpal::traits::{HostTrait, DeviceTrait};
+    //     let host = cpal::default_host();
+    //     let device = host.default_output_device().unwrap();
+    //     let vol_control =  device.default_volume_control().unwrap();
+    //     dbg!(vol_control.set_vol(0.20));
+    //     println!("{:?}", device.default_volume_control().unwrap());
+    //     assert!(false);
+    // }
     
 }
