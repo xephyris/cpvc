@@ -130,7 +130,7 @@ dependencies = [
 [[package]]
 name = "cpal"
 version = "0.16.0"
-source = "git+https://github.com/xephyris/cpal#44ec96be987601381d7194a91c2905b2dc5e3624"
+source = "git+https://github.com/xephyris/cpal#d516476b5b1fa2772e6d1719fc43a01ac7ba9d3b"
 dependencies = [
  "alsa 0.10.0",
  "coreaudio-rs",

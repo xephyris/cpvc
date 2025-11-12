@@ -23,7 +23,7 @@ impl VolumeControlExt for cpal::Device {
          #[cfg(target_os="macos")] {
             use cpal::traits::DeviceTrait;
 
-            use crate::{get_output_device_details, scan::scan_devices};
+            use crate::{coreaudio::get_output_device_details, scan::scan_devices};
             let name = self.name().unwrap();
             if let Some(device_id) = scan_devices().remove(&name) {
                 let channels;
@@ -287,11 +287,12 @@ mod tests {
             println!("{}", device.name().unwrap_or_default());
             println!("{:?}", device.id().unwrap());
         }
+        assert!(false);
     }
 
     // #[test]
     // fn cpal_from_uid() {
-    //     use cpal::traits::{HostTrait, DeviceTrait};
+    //     use cpal::traits::`{HostTrait, DeviceTrait};
     //     let host = cpal::default_host();
     //     let device = host.default_output_device().unwrap();
     //     let vol_control =  device.default_volume_control().unwrap();

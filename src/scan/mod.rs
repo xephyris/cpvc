@@ -50,7 +50,7 @@ pub fn scan_devices() -> HashMap<String, u32> {
             }
             for device in &device_details {
                 if *device != 0 {
-                    use crate::{check_device_type, get_device_name, DeviceType};
+                    use crate::{coreaudio::{check_device_type, get_device_name}, DeviceType};
 
                     let name = get_device_name(*device).unwrap();
                     match check_device_type(*device) {

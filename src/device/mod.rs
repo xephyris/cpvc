@@ -18,6 +18,7 @@ use crate::debug_eprintln;
 enum DeviceId {
     MacOS(u32),
     Windows(String),
+    PulseAudio
 }
 
 #[derive(Debug)]
@@ -33,7 +34,7 @@ impl AudioDevice {
     pub fn get_default_device() -> Result<AudioDevice, Error> {
 
         #[cfg(target_os="macos")] {
-            use crate::{capture_output_device_id, get_device_name, get_output_device_details};
+            use crate::coreaudio::{capture_output_device_id, get_device_name, get_output_device_details};
 
             let captured_device_id = capture_output_device_id();
             if let Ok(device_id) = captured_device_id {
@@ -67,7 +68,7 @@ impl AudioDevice {
 
     pub fn get_device_from_id(device_id: DeviceId) -> Result<AudioDevice, Error> {
         #[cfg(target_os="macos")] {
-            use crate::{get_device_name, get_output_device_details};
+            use crate::coreaudio::{get_device_name, get_output_device_details};
             let device_id = match device_id {
                 DeviceId::MacOS(id_num) => {
                     id_num
@@ -96,7 +97,7 @@ impl AudioDevice {
                 device_id: DeviceId::MacOS(device_id),
                 hw_name: device_name,
                 channels,
-                vol_ctl: VolControl::new(device_id, channels)
+                vol_ctl: VolControl::new(DeviceId::MacOS(device_id), channels)
             });
 
         }
@@ -162,7 +163,7 @@ impl AudioDevice {
 
     pub fn get_device_from_name(name: String) -> Result<AudioDevice, Error> {
         #[cfg(target_os="macos")] {
-            use crate::{get_device_name, get_output_device_details, scan::scan_devices};
+            use crate::{coreaudio::get_device_name, coreaudio::get_output_device_details, scan::scan_devices};
 
             if let Some(device_id) = scan_devices().remove(&name) {
                 let mut device_name = String::new();
@@ -215,6 +216,15 @@ impl VolControl {
         let mut success = Some(false);
         #[cfg(target_os="macos")]{
             use std::ptr::{null, NonNull};
+            let hw_id = match self.hw_id {
+                DeviceId::MacOS(id) => {
+                    id
+                }
+                _ => {
+                    return false;
+                }
+            };
+
             let channel_count = self.channels;
 
             let volume_data_size = size_of::<f32>() as u32;
@@ -228,7 +238,7 @@ impl VolControl {
                 };
 
                 unsafe {
-                    let change_volume_status = AudioObjectSetPropertyData(self.hw_id,
+                    let change_volume_status = AudioObjectSetPropertyData(hw_id,
                         NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
                         0, null(),
                         volume_data_size, NonNull::new_unchecked( &val as *const _ as *mut _));
@@ -249,7 +259,7 @@ impl VolControl {
             for mute in (0..=1 as u32).rev() {
                 let mute_data_size = size_of::<u32>() as u32;
                 unsafe {
-                    let mute_status = AudioObjectSetPropertyData(self.hw_id,
+                    let mute_status = AudioObjectSetPropertyData(hw_id,
                         NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
                         0, null(),
                         mute_data_size, NonNull::new_unchecked(&mute as *const _ as *mut _));
@@ -268,6 +278,17 @@ impl VolControl {
         let mut vol = 0.0;
         #[cfg(target_os="macos")] {
             use std::ptr::{NonNull, null};
+
+            let hw_id = match self.hw_id {
+                DeviceId::MacOS(id) => {
+                    id
+                }
+                _ => {
+                    return 0.0;
+                }
+            };
+
+
             let mute_property_address = AudioObjectPropertyAddress {
                     mSelector: kAudioDevicePropertyMute,
                     mScope: kAudioDevicePropertyScopeOutput,
@@ -292,7 +313,7 @@ impl VolControl {
 
 
                     let get_volume_data_size_status = AudioObjectGetPropertyDataSize(
-                            self.hw_id,
+                            hw_id,
                             NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
                             0,
                             null(),
@@ -300,7 +321,7 @@ impl VolControl {
                         );
                     if get_volume_data_size_status == 0 {
                         let get_volume_status = AudioObjectGetPropertyData(
-                            self.hw_id,
+                            hw_id,
                             NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
                             0,
                             null(),
@@ -329,6 +350,16 @@ impl VolControl {
     pub fn set_mute(&self, mute: bool) -> bool {
         let mut status = false;
         #[cfg(target_os="macos")] {
+            let hw_id = match self.hw_id {
+                DeviceId::MacOS(id) => {
+                    id
+                }
+                _ => {
+                    return false;
+                }
+            };
+
+
             let mute_property_address = AudioObjectPropertyAddress {
                         mSelector: kAudioDevicePropertyMute,
                         mScope: kAudioDevicePropertyScopeOutput,
@@ -345,7 +376,7 @@ impl VolControl {
             };
             unsafe {
                 use std::ptr::{NonNull, null};
-                let mute_status = AudioObjectSetPropertyData(self.hw_id,
+                let mute_status = AudioObjectSetPropertyData(hw_id,
                     NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
                     0, null(),
                     mute_data_size, NonNull::new_unchecked(&mute as *const _ as *mut _));
@@ -359,6 +390,15 @@ impl VolControl {
 
     pub fn is_mute(&self) -> Result<bool, VolumeError> {
         let mut mute:u32 = 0;
+        let hw_id = match self.hw_id {
+            DeviceId::MacOS(id) => {
+                id
+            }
+            _ => {
+                return Err(VolumeError::MuteStatusCaptureFailed);
+            }
+        };
+
         #[cfg(target_os="macos")] {
             let mute_property_address = AudioObjectPropertyAddress {
                         mSelector: kAudioDevicePropertyMute,
@@ -369,7 +409,7 @@ impl VolControl {
 
             unsafe {
                 use std::ptr::{NonNull, null};
-                let mute_status = AudioObjectGetPropertyData(self.hw_id,
+                let mute_status = AudioObjectGetPropertyData(hw_id,
                     NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
                     0, null(),
                     NonNull::new_unchecked(&mut mute_data_size as *mut _), 
@@ -451,7 +491,7 @@ mod tests {
 
     #[test]
     fn get_audio_device_volume() {
-        let device = AudioDevice::get_device_from_name("Mac mini Speakers".to_string()).unwrap();
+        let device = AudioDevice::get_default_device().unwrap();
         let mut vol_ctl = device.default_volume_control();
         dbg!(vol_ctl.get_vol());
         dbg!(device);
@@ -460,7 +500,6 @@ mod tests {
 
     #[test]
     fn check_muted() {
-        // let device = AudioDevice::get_device_from_name("Mac mini Speakers".to_string()).unwrap();
         let device = AudioDevice::get_default_device().unwrap();
         let mut vol_ctl = device.default_volume_control();
         dbg!(vol_ctl.is_mute());
