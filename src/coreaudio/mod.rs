@@ -21,18 +21,6 @@ use {
     },
 };
 
-pub trait VolumeControl {
-    fn get_sound_devices() -> Result<Vec<String>, Error>;
-
-    fn get_vol() -> Result<f32, Error>;
-
-    fn set_vol(value: f32) -> Result<(), Error>;
-
-    fn get_mut() -> Result<bool, Error>;
-
-    fn set_mut(state: bool) -> Result<(), Error>;
-}
-
 pub fn get_sound_devices() -> Result<Vec<String>, Error> {
     let mut devices:Vec<String> = Vec::new();
     let audio_devices_count_address =  AudioObjectPropertyAddress {
@@ -43,9 +31,9 @@ pub fn get_sound_devices() -> Result<Vec<String>, Error> {
 
     let mut device_count: u32 = 0;
     let mut success = false;
-
+    let capture_count_status;
     unsafe {
-        let capture_count_status = AudioObjectGetPropertyDataSize(
+        capture_count_status = AudioObjectGetPropertyDataSize(
             kAudioObjectSystemObject as AudioObjectID,
             NonNull::new_unchecked(&audio_devices_count_address as *const _ as *mut _),
             0,
@@ -69,6 +57,8 @@ pub fn get_sound_devices() -> Result<Vec<String>, Error> {
                 NonNull::new_unchecked(device_details.as_mut_ptr() as *mut c_void));
             if capture_id_status == 0 {
                 device_details.set_len(device_count as usize);
+            } else {
+                return Err(Error::DeviceEnumerationFailed(format!("Failed to capture device ids with status {}", capture_id_status)))
             }
         }
         for device in &device_details {
@@ -88,10 +78,14 @@ pub fn get_sound_devices() -> Result<Vec<String>, Error> {
 
             }
         }
+        Ok(devices)
+    } else {
+        Err(Error::DeviceEnumerationFailed(format!("Failed to capture device count with status {}", capture_count_status)))
     }
-    Ok(devices)
+    
 }
 
+// get_vol() on muted device will return 0 as volume
 pub fn get_vol() -> Result<f32, Error> {
     let mut vol = 0;
     let captured_device_id = capture_output_device_id();
@@ -150,7 +144,6 @@ pub fn get_vol() -> Result<f32, Error> {
                                 null(),
                                 NonNull::new_unchecked(&volume_data_size as *const _ as *mut _),
                                 NonNull::new_unchecked(&mut channel_volume as *mut _ as *mut c_void));
-
                             if get_volume_status != 0 {
                                 debug_eprintln(&format!("Failed to get volume on channel {} (This may be normal behavior)", if channel == 0 {"0 (Master Channel)".to_string()} else {channel.to_string()}));
                             } else {
@@ -166,6 +159,8 @@ pub fn get_vol() -> Result<f32, Error> {
                     total_volume *= 100.0;
                     total_volume = total_volume.round();
                     vol = (total_volume as u32 / total_channels) as u8;
+                } else {
+                    return Err(Error::VolumeCaptureFailed(format!("Failed to capture volume information from any of the channels in the device.\nChannels detected: {}\nChannels captured{}", channel_count, total_channels)));
                 }
             }
         } else {
