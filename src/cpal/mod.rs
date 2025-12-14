@@ -1,9 +1,9 @@
 use std::ffi::c_void;
 
+#[cfg(target_os = "macos")]
 use core_foundation::{base::TCFType, string::CFString};
 pub use cpal::*;
 
-use objc2_core_audio::kAudioHardwarePropertyDeviceForUID;
 #[cfg(target_os="macos")]
 use objc2_core_audio::{
         AudioObjectGetPropertyData, AudioObjectSetPropertyData, AudioObjectGetPropertyDataSize,
@@ -14,7 +14,7 @@ use objc2_core_audio::{
         kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyDeviceNameCFString,
         kAudioDevicePropertyStreamFormat, kAudioObjectPropertyScopeOutput,
         kAudioHardwarePropertyDevices, kAudioDevicePropertyStreams,
-        kAudioObjectPropertyScopeInput,
+        kAudioObjectPropertyScopeInput, kAudioHardwarePropertyDeviceForUID
 };
 use crate::{debug_eprintln, error::Error};
 
@@ -79,12 +79,12 @@ impl VolControl {
         VolControl { id:hw_id, channels }
     }
 
-    pub fn from_cpal_id(device_id: DeviceId) -> Self {
-        match device_id.0 {
-            HostId::CoreAudio => todo!(),
-            // HostId::Jack => {}
-        }
-    }
+    // pub fn from_cpal_id(device_id: DeviceId) -> Self {
+    //     match device_id.0 {
+    //         HostId::CoreAudio => todo!(),
+    //         // HostId::Jack => {}
+    //     }
+    // }
 
     pub fn set_vol(&self, val: f32) -> Result<(), VolumeError> {
         let mut success = Some(false);
@@ -271,6 +271,7 @@ impl VolControl {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn uid_to_hw_id(uid: String) -> Result<u32, Error> {
     let id_property_address = AudioObjectPropertyAddress {
         mSelector: kAudioHardwarePropertyDeviceForUID,
@@ -310,7 +311,9 @@ mod tests {
 
     use cpal::traits::{DeviceTrait, HostTrait};
 
-    use crate::cpal::{VolumeControlExt, uid_to_hw_id};
+    use crate::cpal::VolumeControlExt;
+
+    // use crate::cpal::{VolumeControlExt, uid_to_hw_id};
 
     #[test]
     fn cpal_get_device_name() {
@@ -320,7 +323,7 @@ mod tests {
         println!("{:?}", host.id());
         let device = host.default_output_device().expect("no output device available");
         println!("{}", device.name().unwrap());
-        println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID: {:?}", device.id(), uid_to_hw_id(device.id().unwrap().1));
+        // println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID: {:?}", device.id(), uid_to_hw_id(device.id().unwrap().1));
         assert!(false);
     }
 

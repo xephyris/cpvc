@@ -118,12 +118,10 @@ impl AudioDevice {
             unsafe {
                 use windows::{core::PWSTR, Win32::{Media::Audio::Endpoints::IAudioEndpointVolume, System::Com::{CLSCTX_ALL, STGM_READ}}};
 
-                use crate::get_enumerator;
-
                 let mut id = format!("{}\0", device_id).encode_utf16().collect::<Vec<u16>>();
                 let pwstr = PWSTR(id.as_mut_ptr());
 
-                let enumerator = get_enumerator();
+                let enumerator = crate::wasapi::get_enumerator();
                 let device = match enumerator.GetDevice(pwstr) {
                     Ok(device) => {
                         device
@@ -443,7 +441,7 @@ impl VolControl {
         unsafe {
             use windows::core::PWSTR;
 
-            use crate::get_enumerator;
+            use crate::wasapi::get_enumerator;
 
             let mut id = format!("{}\0", device_id).encode_utf16().collect::<Vec<u16>>();
             let pwstr = PWSTR(id.as_mut_ptr());
