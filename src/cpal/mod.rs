@@ -1,5 +1,9 @@
+use std::ffi::c_void;
+
+use core_foundation::{base::TCFType, string::CFString};
 pub use cpal::*;
 
+use objc2_core_audio::kAudioHardwarePropertyDeviceForUID;
 #[cfg(target_os="macos")]
 use objc2_core_audio::{
         AudioObjectGetPropertyData, AudioObjectSetPropertyData, AudioObjectGetPropertyDataSize,
@@ -12,31 +16,52 @@ use objc2_core_audio::{
         kAudioHardwarePropertyDevices, kAudioDevicePropertyStreams,
         kAudioObjectPropertyScopeInput,
 };
-use crate::debug_eprintln;
+use crate::{debug_eprintln, error::Error};
 
 pub trait VolumeControlExt {
     fn default_volume_control(&self) -> Result<VolControl, VolumeError>;
 }
 
 impl VolumeControlExt for cpal::Device {
+    // fn default_volume_control(&self) -> Result<VolControl, VolumeError> {
+    //      #[cfg(target_os="macos")] {
+    //         use cpal::traits::DeviceTrait;
+
+    //         use crate::{coreaudio::get_output_device_details, scan::scan_devices};
+    //         let name = self.name().unwrap();
+    //         if let Some(device_id) = scan_devices().remove(&name) {
+    //             let channels;
+                
+    //             let device_stats = get_output_device_details(device_id);
+    //             if let Ok(stats) = device_stats {
+    //                 channels = stats.mChannelsPerFrame;
+    //             } else {
+    //                 return Err(VolumeError::ChannelCountCaptureError);
+    //             }
+    //             return Ok(VolControl::new(device_id, channels));
+    //         }
+    //         return Err(VolumeError::DeviceNotFound);        
+    //     }
+    //     Err(VolumeError::UnsupportedOS)
+    // }
     fn default_volume_control(&self) -> Result<VolControl, VolumeError> {
-         #[cfg(target_os="macos")] {
+        #[cfg(target_os="macos")] {
             use cpal::traits::DeviceTrait;
 
             use crate::{coreaudio::get_output_device_details, scan::scan_devices};
-            let name = self.name().unwrap();
-            if let Some(device_id) = scan_devices().remove(&name) {
-                let channels;
+            let id = self.id().unwrap();
+            // if let Some(device_id) = scan_devices().remove(&name) {
+            //     let channels;
                 
-                let device_stats = get_output_device_details(device_id);
-                if let Ok(stats) = device_stats {
-                    channels = stats.mChannelsPerFrame;
-                } else {
-                    return Err(VolumeError::ChannelCountCaptureError);
-                }
-                return Ok(VolControl::new(device_id, channels));
-            }
-            return Err(VolumeError::DeviceNotFound);        
+            //     let device_stats = get_output_device_details(device_id);
+            //     if let Ok(stats) = device_stats {
+            //         channels = stats.mChannelsPerFrame;
+            //     } else {
+            //         return Err(VolumeError::ChannelCountCaptureError);
+            //     }
+            //     return Ok(VolControl::new(device_id, channels));
+            // }
+            // return Err(VolumeError::DeviceNotFound);        
         }
         Err(VolumeError::UnsupportedOS)
     }
@@ -44,14 +69,21 @@ impl VolumeControlExt for cpal::Device {
 
 #[derive(Debug, Clone)]
 pub struct VolControl {
-    hw_id: u32,
+    id: u32,
     channels: u32,
 
 }
 
 impl VolControl {
     pub fn new(hw_id: u32, channels: u32) -> VolControl {
-        VolControl { hw_id, channels }
+        VolControl { id:hw_id, channels }
+    }
+
+    pub fn from_cpal_id(device_id: DeviceId) -> Self {
+        match device_id.0 {
+            HostId::CoreAudio => todo!(),
+            // HostId::Jack => {}
+        }
     }
 
     pub fn set_vol(&self, val: f32) -> Result<(), VolumeError> {
@@ -71,7 +103,7 @@ impl VolControl {
                 };
 
                 unsafe {
-                    let change_volume_status = AudioObjectSetPropertyData(self.hw_id,
+                    let change_volume_status = AudioObjectSetPropertyData(self.id,
                         NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
                         0, null(),
                         volume_data_size, NonNull::new_unchecked( &val as *const _ as *mut _));
@@ -92,7 +124,7 @@ impl VolControl {
             for mute in (0..=1 as u32).rev() {
                 let mute_data_size = size_of::<u32>() as u32;
                 unsafe {
-                    let mute_status = AudioObjectSetPropertyData(self.hw_id,
+                    let mute_status = AudioObjectSetPropertyData(self.id,
                         NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
                         0, null(),
                         mute_data_size, NonNull::new_unchecked(&mute as *const _ as *mut _));
@@ -141,7 +173,7 @@ impl VolControl {
 
 
                     let get_volume_data_size_status = AudioObjectGetPropertyDataSize(
-                            self.hw_id,
+                            self.id,
                             NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
                             0,
                             null(),
@@ -149,7 +181,7 @@ impl VolControl {
                         );
                     if get_volume_data_size_status == 0 {
                         let get_volume_status = AudioObjectGetPropertyData(
-                            self.hw_id,
+                            self.id,
                             NonNull::new_unchecked(&volume_property_address_channel as *const _ as *mut _),
                             0,
                             null(),
@@ -194,7 +226,7 @@ impl VolControl {
             };
             unsafe {
                 use std::ptr::{NonNull, null};
-                let mute_status = AudioObjectSetPropertyData(self.hw_id,
+                let mute_status = AudioObjectSetPropertyData(self.id,
                     NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
                     0, null(),
                     mute_data_size, NonNull::new_unchecked(&mute as *const _ as *mut _));
@@ -218,7 +250,7 @@ impl VolControl {
 
             unsafe {
                 use std::ptr::{NonNull, null};
-                let mute_status = AudioObjectGetPropertyData(self.hw_id,
+                let mute_status = AudioObjectGetPropertyData(self.id,
                     NonNull::new_unchecked(&mute_property_address as *const _ as *mut _),
                     0, null(),
                     NonNull::new_unchecked(&mut mute_data_size as *mut _), 
@@ -239,6 +271,30 @@ impl VolControl {
     }
 }
 
+fn uid_to_hw_id(uid: String) -> Result<u32, Error> {
+    let id_property_address = AudioObjectPropertyAddress {
+        mSelector: kAudioHardwarePropertyDeviceForUID,
+        mScope: kAudioDevicePropertyScopeOutput,
+        mElement: kAudioObjectPropertyElementMain,
+    };
+
+    let cf_uid = CFString::new(&uid);
+
+    let mut hw_id: u32 = 0;
+    let mut data_size = size_of::<u32>() as u32;
+    unsafe {
+        use std::ptr::{NonNull, null};
+        let hw_id_status = AudioObjectGetPropertyData(kAudioObjectSystemObject as u32,
+            NonNull::new_unchecked(&id_property_address as *const _ as *mut _),
+            size_of::<String>() as u32, cf_uid.as_concrete_TypeRef() as *const c_void,
+            NonNull::new_unchecked(&mut data_size as *mut _ ), NonNull::new_unchecked(&hw_id as *const _ as *mut _));
+        if hw_id_status != 0 {
+            return Err(Error::Placeholder);
+        }
+    }
+    Ok(hw_id)
+}
+
 #[derive(Debug)]
 pub enum VolumeError {
     MuteStatusCaptureFailed,
@@ -254,15 +310,17 @@ mod tests {
 
     use cpal::traits::{DeviceTrait, HostTrait};
 
-    use crate::cpal::VolumeControlExt;
+    use crate::cpal::{VolumeControlExt, uid_to_hw_id};
 
     #[test]
     fn cpal_get_device_name() {
         use cpal::traits::HostTrait;
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
+        println!("{:?}", host.id());
         let device = host.default_output_device().expect("no output device available");
         println!("{}", device.name().unwrap());
+        println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID: {:?}", device.id(), uid_to_hw_id(device.id().unwrap().1));
         assert!(false);
     }
 
