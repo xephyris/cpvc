@@ -111,7 +111,7 @@ enum VolumeError {
 pub fn get_sound_devices() -> Vec<String> {
     let mut devices:Vec<String> = Vec::new();
     #[cfg(target_os="macos")] {
-        devices = coreaudio::get_sound_devices().unwrap();
+        devices = coreaudio::CoreAudio::get_sound_devices().unwrap();
     }
     #[cfg(target_os="windows")] {
         devices = wasapi::get_sound_devices().unwrap_or(Vec::new())
@@ -172,7 +172,7 @@ pub fn get_system_volume() -> u8 {
     #[allow(unused_assignments)]
     let mut vol: u8 = 0;
     #[cfg(target_os="macos")] {
-       vol = (coreaudio::get_vol().unwrap() * 100.0) as u8;
+       vol = (coreaudio::CoreAudio::get_vol().unwrap() * 100.0) as u8;
     }
     #[cfg(target_os="windows")] {
         vol = (wasapi::get_vol().unwrap() * 100.0) as u8;
@@ -249,7 +249,7 @@ pub fn set_system_volume(percent: u8) -> bool {
     #[allow(unused_assignments)]
     let mut success = None;
     #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::set_vol(percent as f32 / 100.0) {
+        if let Ok(_) = coreaudio::CoreAudio::set_vol(percent as f32 / 100.0) {
             success = Some(true)
         } else {
             success.replace(false);
@@ -338,7 +338,7 @@ pub fn set_mute(mute: bool) -> bool {
     let mut status = false;
     #[cfg(target_os="macos")] {
          #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::set_mute(mute) {
+        if let Ok(_) = coreaudio::CoreAudio::set_mute(mute) {
             status = true
         } else {
             status = false;
@@ -419,7 +419,7 @@ pub fn set_mute(mute: bool) -> bool {
 pub fn get_mute() -> bool {
     let mut mute = 0;
     #[cfg(target_os="macos")] {
-        mute = match coreaudio::get_mute().unwrap() {
+        mute = match coreaudio::CoreAudio::get_mute().unwrap() {
             true => {
                 1
             }
