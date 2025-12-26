@@ -1,3 +1,5 @@
+use objc2_core_audio::kAudioHardwarePropertyDeviceForUID;
+
 use crate::{DeviceType, VolumeControl, VolumeError, debug_eprintln, error::Error};
 
 #[cfg(target_os="macos")]
@@ -21,9 +23,9 @@ use {
     },
 };
 
+// TODO Create CoreAudioExpanded struct for non essential features
+
 pub struct CoreAudio {
-    device_id: u32,
-    device_uid: String,
 }
 
 impl VolumeControl for CoreAudio {
@@ -69,8 +71,8 @@ impl VolumeControl for CoreAudio {
             }
             for device in &device_details {
                 if *device != 0 {
-                    let name = get_device_name(*device).unwrap();
-                    match check_device_type(*device) {
+                    let name = CoreAudio::get_device_name(*device).unwrap();
+                    match CoreAudio::check_device_type(*device) {
                         DeviceType::Input => {
                             // May Add Future Functionality
                         },
@@ -94,7 +96,7 @@ impl VolumeControl for CoreAudio {
     // get_vol() on muted device will return 0 as volume
     fn get_vol() -> Result<f32, Error> {
         let mut vol = 0;
-        let captured_device_id = capture_output_device_id();
+        let captured_device_id = CoreAudio::capture_output_device_id();
         if captured_device_id.is_ok() {
             let device_id = captured_device_id.unwrap();
             let mute_property_address = AudioObjectPropertyAddress {
@@ -119,7 +121,7 @@ impl VolumeControl for CoreAudio {
                 }
             }
             if mute == 0 {
-                let device_details = get_output_device_details(device_id);
+                let device_details = CoreAudio::get_output_device_details(device_id);
                 if device_details.is_ok() {
                     let channel_count = device_details.unwrap().mChannelsPerFrame;
                     let mut total_volume: f32 = 0.0;
@@ -178,10 +180,10 @@ impl VolumeControl for CoreAudio {
 
     fn set_vol(value: f32) -> Result<(), Error> {
         let mut status = None;
-        let captured_device_id = capture_output_device_id();
+        let captured_device_id = CoreAudio::capture_output_device_id();
         if captured_device_id.is_ok() {
             let device_id = captured_device_id.unwrap();
-            let device_details = get_output_device_details(device_id);
+            let device_details = CoreAudio::get_output_device_details(device_id);
 
             if device_details.is_ok() {
                 let channel_count = device_details.unwrap().mChannelsPerFrame;
@@ -254,7 +256,7 @@ impl VolumeControl for CoreAudio {
 
     fn get_mute() -> Result<bool, Error> {
         let mut mute = 0;
-        let captured_device_id = capture_output_device_id();
+        let captured_device_id = CoreAudio::capture_output_device_id();
         if captured_device_id.is_ok() {
             let device_id = captured_device_id.unwrap();
             let mut mute_property_address = AudioObjectPropertyAddress {
@@ -278,7 +280,7 @@ impl VolumeControl for CoreAudio {
 
     fn set_mute(state: bool) -> Result<(), Error> {
         let mut status = true;
-        let captured_device_id = capture_output_device_id();
+        let captured_device_id = CoreAudio::capture_output_device_id();
         if captured_device_id.is_ok() {
             let device_id = captured_device_id.unwrap();
             let mute_property_address = AudioObjectPropertyAddress {
@@ -313,213 +315,250 @@ impl VolumeControl for CoreAudio {
     }
 }
 
-
-pub fn get_default_output_dev() -> String {
-    let mut device_name = String::new();
-    let captured_device_id = capture_output_device_id();
-    if captured_device_id.is_ok() {
-        let name = get_device_name(captured_device_id.unwrap());
-        if name.is_ok() {
-            device_name.push_str(&name.unwrap());
-        }
-    }
-    device_name
-}
-
-pub fn capture_output_device_id() -> Result<u32, VolumeError> {
-    unsafe {
-        // Attempt to Capture Device ID of Default Audio Output Device
-        let output_device_address = AudioObjectPropertyAddress {
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain,
-        };
-
+impl CoreAudio {
+    // Attempt to Capture Device ID of Default Audio Output Device
+    fn capture_output_device_id() -> Result<u32, VolumeError> {
+        let mut output_device_address = AudioObjectPropertyAddress {
+                mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain,
+            };
         let mut device_id: AudioObjectID = 0;
         let mut data_size = size_of::<AudioObjectID>() as u32;
-
-        let capture_output_status = AudioObjectGetPropertyData(
-            kAudioObjectSystemObject as u32,
-            NonNull::new_unchecked(&output_device_address as *const _ as *mut _),
-            0,
-            null(),
-            NonNull::new_unchecked(&mut data_size),
-            NonNull::new_unchecked(&mut device_id as *mut _ as *mut c_void),
-        );
-
-        if capture_output_status == 0 {
-            Ok(device_id)
-        } else {
-            Err(VolumeError::OutputDeviceCaptureError("CoreAudio backend error".to_string()))
-        }
-    }
-
-}
-
-pub fn check_device_type(device_id: u32) -> DeviceType {
-    let dev_type_address = AudioObjectPropertyAddress {
-        mSelector: kAudioDevicePropertyStreams,
-        mScope: kAudioObjectPropertyScopeOutput,
-        mElement: kAudioObjectPropertyElementMain,
-    };
-
-    let mut stream_count: u32 = 0;
-    let count_size = size_of::<u32>() as u32;
-    let capture_type_status;
-    unsafe {
-        capture_type_status = AudioObjectGetPropertyData(
-            device_id,
-            NonNull::new_unchecked(&dev_type_address as *const _ as *mut _),
-            0,
-            null(),
-            NonNull::new_unchecked(&count_size as *const _ as *mut _),
-            NonNull::new_unchecked(&mut stream_count as *mut _ as *mut c_void));
-    }
-    if capture_type_status == 0 {
-        if stream_count > 0 {
-            DeviceType::Output
-        } else {
-            let input_type_address = AudioObjectPropertyAddress {
-                    mSelector: kAudioDevicePropertyStreams,
-                    mScope: kAudioObjectPropertyScopeInput,
-                    mElement: kAudioObjectPropertyElementMain,
-                };
-            let mut in_stream_count: u32 = 0;
-            let in_count_size = size_of::<u32>() as u32;
-            let capture_in_type_status;
-            unsafe {
-                capture_in_type_status = AudioObjectGetPropertyData(
-                    device_id,
-                    NonNull::new_unchecked(&input_type_address as *const _ as *mut _),
-                    0,
-                    null(),
-                    NonNull::new_unchecked(&in_count_size as *const _ as *mut _),
-                    NonNull::new_unchecked(&mut in_stream_count as *mut _ as *mut c_void)
-                );
-            }
-            if capture_in_type_status == 0 {
-                DeviceType::Input
-            } else {
-                DeviceType::None
-            }
-        }
-    } else {
-        DeviceType::None
-    }
-}
-
-pub fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescription, VolumeError> {
-    let property_address = AudioObjectPropertyAddress{
-        mSelector: kAudioDevicePropertyStreamFormat,
-        mScope: kAudioObjectPropertyScopeOutput,
-        mElement: kAudioObjectPropertyElementMain,
-    };
-    let mut details: AudioStreamBasicDescription = AudioStreamBasicDescription {
-        mSampleRate: 0.0,
-        mFormatID: 0,
-        mFormatFlags: 0,
-        mBytesPerPacket: 0,
-        mFramesPerPacket: 0,
-        mBytesPerFrame: 0,
-        mChannelsPerFrame: 0,
-        mBitsPerChannel: 0,
-        mReserved: 0 };
-    let data_size = size_of::<AudioStreamBasicDescription>();
-
-    unsafe {
-        let detail_capture_status = AudioObjectGetPropertyData(device_id,
-            NonNull::new_unchecked(&property_address as *const _ as *mut _ ),
-            0,
-            null(),
-            NonNull::new_unchecked(&data_size as *const _ as *mut _),
-            NonNull::new_unchecked(&mut details as *mut _ as *mut c_void));
-        if detail_capture_status == 0 {
-            Ok(details)
-        } else {
-            Err(VolumeError::DeviceDetailsCaptureError("CoreAudio backend error.".to_string()))
-        }
-    }
-
-
-}
-
-pub fn get_device_name(device_id: u32) -> Result<String, VolumeError> {
-    let property_address = AudioObjectPropertyAddress {
-        mSelector: kAudioDevicePropertyDeviceNameCFString,
-        mScope: kAudioObjectPropertyScopeGlobal,
-        mElement: kAudioObjectPropertyElementMain,
-    };
-    unsafe {
-        let mut name: CFStringRef = null_mut();
-        let data_size = size_of::<CFStringRef>() as u32;
-        let status = AudioObjectGetPropertyData(
-                device_id,
-                NonNull::new_unchecked(&property_address as *const _ as *mut _),
+        unsafe {
+            let capture_output_status = AudioObjectGetPropertyData(
+                kAudioObjectSystemObject as u32,
+                NonNull::new_unchecked(&mut output_device_address),
                 0,
                 null(),
-                NonNull::new_unchecked(&data_size as *const _ as *mut _),
-                NonNull::new_unchecked(&mut name as *mut _ as *mut _),
+                NonNull::new_unchecked(&mut data_size),
+                NonNull::new_unchecked(&mut device_id as *mut _ as *mut c_void),
             );
-        if status == 0 {
-            Ok(CFString::wrap_under_get_rule(name).to_string())
+
+            if capture_output_status == 0 {
+                Ok(device_id)
+            } else {
+                Err(VolumeError::OutputDeviceCaptureError("CoreAudio backend error".to_string()))
+            }
+        }
+
+    }
+    pub fn get_default_output_dev_name() -> String {
+        let mut device_name = String::new();
+        let captured_device_id = CoreAudio::capture_output_device_id();
+        if let Ok(captured_device_id) = captured_device_id {
+            let name = CoreAudio::get_device_name(captured_device_id);
+            if name.is_ok() {
+                device_name.push_str(&name.unwrap());
+            }
+        }
+        device_name
+    }
+
+    pub fn check_device_type(device_id: u32) -> DeviceType {
+        let mut dev_type_address = AudioObjectPropertyAddress {
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioObjectPropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain,
+        };
+
+        let mut stream_count: u32 = 0;
+        let mut count_size = size_of::<u32>() as u32;
+        let capture_type_status;
+        unsafe {
+            capture_type_status = AudioObjectGetPropertyData(
+                device_id,
+                NonNull::new_unchecked(&mut dev_type_address),
+                0,
+                null(),
+                NonNull::new_unchecked(&mut count_size),
+                NonNull::new_unchecked(&mut stream_count as *mut _ as *mut c_void));
+        }
+        if capture_type_status == 0 {
+            if stream_count > 0 {
+                DeviceType::Output
+            } else {
+                let input_type_address = AudioObjectPropertyAddress {
+                        mSelector: kAudioDevicePropertyStreams,
+                        mScope: kAudioObjectPropertyScopeInput,
+                        mElement: kAudioObjectPropertyElementMain,
+                    };
+                let mut in_stream_count: u32 = 0;
+                let in_count_size = size_of::<u32>() as u32;
+                let capture_in_type_status;
+                unsafe {
+                    capture_in_type_status = AudioObjectGetPropertyData(
+                        device_id,
+                        NonNull::new_unchecked(&input_type_address as *const _ as *mut _),
+                        0,
+                        null(),
+                        NonNull::new_unchecked(&in_count_size as *const _ as *mut _),
+                        NonNull::new_unchecked(&mut in_stream_count as *mut _ as *mut c_void)
+                    );
+                }
+                if capture_in_type_status == 0 {
+                    DeviceType::Input
+                } else {
+                    DeviceType::None
+                }
+            }
         } else {
-            debug_eprintln(&format!("Failed to get device name. Status: {}", status));
-            Err(VolumeError::NameCaptureError("CoreAudio backend error".to_string()))
+            DeviceType::None
         }
     }
 
-}
+    pub fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescription, VolumeError> {
+        let mut property_address = AudioObjectPropertyAddress{
+            mSelector: kAudioDevicePropertyStreamFormat,
+            mScope: kAudioObjectPropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain,
+        };
+        
+        let mut details: AudioStreamBasicDescription = AudioStreamBasicDescription {
+            mSampleRate: 0.0,
+            mFormatID: 0,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 0,
+            mBytesPerFrame: 0,
+            mChannelsPerFrame: 0,
+            mBitsPerChannel: 0,
+            mReserved: 0 };
+        let mut data_size: u32 = size_of::<AudioStreamBasicDescription>() as u32;
 
-fn get_hw_name(device_id: u32) -> Result<String, VolumeError> {
-    #[cfg(target_os = "macos")]
-    {
-        use objc2_core_audio::kAudioDevicePropertyDeviceName;
+        unsafe {
+            let detail_capture_status = AudioObjectGetPropertyData(device_id,
+                NonNull::new_unchecked(&mut property_address),
+                0,
+                null(),
+                NonNull::new_unchecked(&mut data_size),
+                NonNull::new_unchecked(&mut details as *mut _ as *mut c_void));
+            if detail_capture_status == 0 {
+                Ok(details)
+            } else {
+                Err(VolumeError::DeviceDetailsCaptureError("CoreAudio backend error.".to_string()))
+            }
+        }
+    }
 
-        let property_address = AudioObjectPropertyAddress {
-            mSelector: kAudioDevicePropertyDeviceName,
+    pub fn get_device_name(device_id: u32) -> Result<String, VolumeError> {
+        let mut property_address = AudioObjectPropertyAddress {
+            mSelector: kAudioDevicePropertyDeviceNameCFString,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain,
         };
-        unsafe{
-            
-            let data_size = size_of::<u32>() as u32;
-            let size_status = AudioObjectGetPropertyDataSize(
+        let mut name: CFStringRef = null_mut();
+        let mut data_size = size_of::<CFStringRef>() as u32;
+        unsafe {
+            let status = AudioObjectGetPropertyData(
                     device_id,
-                    NonNull::new_unchecked(&property_address as *const _ as *mut _),
+                    NonNull::new_unchecked(&mut property_address),
                     0,
                     null(),
-                    NonNull::new_unchecked(&data_size as *const _ as *mut _),
-            );
-            if size_status == 0 {
-                let mut hw_name= Vec::new();
-                hw_name.resize(data_size as usize, 0);
-                let status = AudioObjectGetPropertyData(
-                        device_id,
-                        NonNull::new_unchecked(&property_address as *const _ as *mut _),
-                        0,
-                        null(),
-                        NonNull::new_unchecked(&data_size as *const _ as *mut _),
-                        NonNull::new_unchecked(hw_name.as_mut_ptr() as *mut _),
-                    );
-                if status == 0 {
-                    match String::from_utf8(hw_name) {
-                        Ok(name) => {
-                            dbg!(name.clone());
-                            Ok(name)
-                        },
-                        Err(e) => {
-                            debug_eprintln(&format!("Failed to get device name. Error: {}", e));
-                            Err(VolumeError::NameCaptureError(e.to_string()))
-                        }
-                    }
-                } else {
-                    debug_eprintln(&format!("Failed to get device name. Status: {}", status));
-                    Err(VolumeError::NameCaptureError("CoreAudio backend error".to_string()))
-                }
+                    NonNull::new_unchecked(&mut data_size),
+                    NonNull::new_unchecked(&mut name as *mut _ as *mut _),
+                );
+            if status == 0 {
+                Ok(CFString::wrap_under_get_rule(name).to_string())
             } else {
+                debug_eprintln(&format!("Failed to get device name. Status: {}", status));
                 Err(VolumeError::NameCaptureError("CoreAudio backend error".to_string()))
             }
         }
     }
 
+    fn get_hw_name(device_id: u32) -> Result<String, VolumeError> {
+        #[cfg(target_os = "macos")]
+        {
+            use objc2_core_audio::kAudioDevicePropertyDeviceName;
+
+            let mut property_address = AudioObjectPropertyAddress {
+                mSelector: kAudioDevicePropertyDeviceName,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain,
+            };
+
+            let mut data_size = size_of::<u32>() as u32;
+            unsafe{
+                
+                
+                let size_status = AudioObjectGetPropertyDataSize(
+                        device_id,
+                        NonNull::new_unchecked(&mut property_address),
+                        0,
+                        null(),
+                        NonNull::new_unchecked(&mut data_size),
+                );
+                if size_status == 0 {
+                    let mut hw_name= Vec::new();
+                    hw_name.resize(data_size as usize, 0);
+                    let status = AudioObjectGetPropertyData(
+                            device_id,
+                            NonNull::new_unchecked(&mut property_address),
+                            0,
+                            null(),
+                            NonNull::new_unchecked(&mut data_size),
+                            NonNull::new_unchecked(hw_name.as_mut_ptr() as *mut _),
+                        );
+                    if status == 0 {
+                        match String::from_utf8(hw_name) {
+                            Ok(name) => {
+                                dbg!(name.clone());
+                                Ok(name)
+                            },
+                            Err(e) => {
+                                debug_eprintln(&format!("Failed to get device name. Error: {}", e));
+                                Err(VolumeError::NameCaptureError(e.to_string()))
+                            }
+                        }
+                    } else {
+                        debug_eprintln(&format!("Failed to get device name. Status: {}", status));
+                        Err(VolumeError::NameCaptureError("CoreAudio backend error".to_string()))
+                    }
+                } else {
+                    Err(VolumeError::NameCaptureError("CoreAudio backend error".to_string()))
+                }
+            }
+        }
+
+    }
+
+    fn uid_to_hw_id(uid: String) -> Result<u32, Error> {
+        let id_property_address = AudioObjectPropertyAddress {
+            mSelector: kAudioHardwarePropertyDeviceForUID,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain,
+        };
+
+        let cf_uid = CFString::new(&uid);
+
+        let mut hw_id: u32 = 0;
+        let mut data_size = size_of::<u32>() as u32;
+        unsafe {
+            use std::ptr::{NonNull, null};
+            let hw_id_status = AudioObjectGetPropertyData(kAudioObjectSystemObject as u32,
+                NonNull::new_unchecked(&id_property_address as *const _ as *mut _),
+                size_of::<String>() as u32, cf_uid.as_concrete_TypeRef() as *const c_void,
+                NonNull::new_unchecked(&mut data_size as *mut _ ), NonNull::new_unchecked(&hw_id as *const _ as *mut _));
+            if hw_id_status != 0 {
+                return Err(Error::Placeholder);
+            }
+        }
+        Ok(hw_id)
+    }
+
 }
+
+pub struct CoreAudioDevice {
+    device_id: u32,
+    device_uid: String,
+}
+
+impl CoreAudioDevice {
+    pub fn get_device_hw_id(&self) -> u32 {
+        self.device_id
+    }
+
+}
+
+
