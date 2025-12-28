@@ -47,7 +47,6 @@ use {
 pub mod command;
 pub mod legacy;
 pub mod device;
-pub mod scan;
 
 
 pub mod cpal;

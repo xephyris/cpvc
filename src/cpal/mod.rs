@@ -48,7 +48,7 @@ impl VolumeControlExt for cpal::Device {
         #[cfg(target_os="macos")] {
             use cpal::traits::DeviceTrait;
 
-            use crate::{coreaudio::CoreAudio, scan::scan_devices};
+            use crate::{coreaudio::CoreAudio};
             let id = self.id().unwrap();
             // if let Some(device_id) = scan_devices().remove(&name) {
             //     let channels;

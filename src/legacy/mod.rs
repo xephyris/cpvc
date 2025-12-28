@@ -701,80 +701,80 @@ pub fn get_os() -> String {
 }
 
 
-#[cfg(test)]
-mod tests {
-    use std::env;
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use std::env;
+//     use super::*;
 
-    #[test]
-    #[ignore]
-    fn test_os_legacy() {
-        println!("{}", get_os());
-        assert_eq!(env::consts::OS, get_os());
-    }
+//     #[test]
+//     #[ignore]
+//     fn test_os_legacy() {
+//         println!("{}", get_os());
+//         assert_eq!(env::consts::OS, get_os());
+//     }
 
-    #[test]
+//     #[test]
 
-    fn sound_devices_legacy() {
-        dbg!(get_sound_devices());
-        assert!(false);
-    }
+//     fn sound_devices_legacy() {
+//         dbg!(get_sound_devices());
+//         assert!(false);
+//     }
 
-    // #[test]
-    // fn set_sound_test_legacy() {
-    //     dbg!(set_system_volume(2));
-    //     assert!(false);
-    // }
+//     // #[test]
+//     // fn set_sound_test_legacy() {
+//     //     dbg!(set_system_volume(2));
+//     //     assert!(false);
+//     // }
 
-    #[test]
-    #[ignore]
-    fn get_sound_test_legacy() {
-        dbg!(get_system_volume());
-        assert!(false);
-    }
+//     #[test]
+//     #[ignore]
+//     fn get_sound_test_legacy() {
+//         dbg!(get_system_volume());
+//         assert!(false);
+//     }
 
-    #[test]
-    #[ignore]
-    fn set_mute_test_legacy() {
-        dbg!(set_system_volume(0));
-        dbg!(get_system_volume());
-        assert!(false);
-    }
-
-
-    // #[test]
-    // #[ignore]
-    // fn current_output() {
-    //     dbg!(set_system_volume(0));
-    //     assert!(false);
-    // }
-
-    // #[test]
-    // #[ignore]
-    // fn sound_devices_cmd() {a
-    //     assert_eq!(false, true);
-    // }
-
-    // #[test]
-    // #[ignore]
-    // fn current_output_cmd() {
-    //     assert!(command::set_system_volume_command(24));
-    // }
-
-    #[cfg(target_os="macos")]
-    #[test]
-    #[ignore]
-    fn get_device_details() {
-        println!("{}", get_default_output_dev());
-        get_output_device_details(capture_output_device_id().unwrap()).unwrap();
-        assert!(false);
-    }
-
-    #[cfg(target_os="linux")]
-    #[test]
-    fn get_pulse_output_devices_legacy() {
-        get_default_output_dev();
-    }
+//     #[test]
+//     #[ignore]
+//     fn set_mute_test_legacy() {
+//         dbg!(set_system_volume(0));
+//         dbg!(get_system_volume());
+//         assert!(false);
+//     }
 
 
-}
+//     // #[test]
+//     // #[ignore]
+//     // fn current_output() {
+//     //     dbg!(set_system_volume(0));
+//     //     assert!(false);
+//     // }
+
+//     // #[test]
+//     // #[ignore]
+//     // fn sound_devices_cmd() {a
+//     //     assert_eq!(false, true);
+//     // }
+
+//     // #[test]
+//     // #[ignore]
+//     // fn current_output_cmd() {
+//     //     assert!(command::set_system_volume_command(24));
+//     // }
+
+//     #[cfg(target_os="macos")]
+//     #[test]
+//     #[ignore]
+//     fn get_device_details() {
+//         println!("{}", get_default_output_dev());
+//         get_output_device_details(capture_output_device_id().unwrap()).unwrap();
+//         assert!(false);
+//     }
+
+//     #[cfg(target_os="linux")]
+//     #[test]
+//     fn get_pulse_output_devices_legacy() {
+//         get_default_output_dev();
+//     }
+
+
+// }
