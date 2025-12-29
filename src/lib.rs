@@ -568,6 +568,20 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
+    // Change HW ID before running
+    fn test_non_default_device() {
+        let device = coreaudio::device::CoreAudioDevice::from_hw_id(0).unwrap();
+        dbg!(device.get_device_hw_id());
+        dbg!(device.get_name());
+        dbg!(device.set_mute(true));
+        dbg!(device.get_vol());
+        dbg!(device.set_vol(0.1));
+        assert!(false);
+
+    }
+
+    #[test]
     fn set_sound_test() {
         dbg!(set_system_volume(2));
         assert!(false);
