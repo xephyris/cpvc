@@ -1,6 +1,6 @@
 [package]
 name = "cpvc"
-version = "0.4.1"
+version = "0.5.0"
 description = "A simple crate + wrapper for controlling system audio cross platform"
 readme = "README.md"
 keywords = ["audio", "cross-platform", "volume"]
