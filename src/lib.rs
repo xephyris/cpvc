@@ -113,7 +113,7 @@ pub fn get_sound_devices() -> Vec<String> {
         devices = coreaudio::CoreAudio::get_sound_devices().unwrap();
     }
     #[cfg(target_os="windows")] {
-        devices = wasapi::get_sound_devices().unwrap_or(Vec::new())
+        devices = wasapi::WASAPI::get_sound_devices().unwrap_or(Vec::new())
     }
     #[cfg(target_os="linux")] {
         use std::sync::{Arc, Mutex};
@@ -174,7 +174,8 @@ pub fn get_system_volume() -> u8 {
        vol = (coreaudio::CoreAudio::get_vol().unwrap() * 100.0) as u8;
     }
     #[cfg(target_os="windows")] {
-        vol = (wasapi::get_vol().unwrap() * 100.0) as u8;
+        println!("{}", wasapi::WASAPI::get_vol().unwrap());
+        vol = (wasapi::WASAPI::get_vol().unwrap() * 100.0) as u8;
     }
     #[cfg(target_os="linux")] {
         use std::sync::{Arc, Mutex};
@@ -255,7 +256,7 @@ pub fn set_system_volume(percent: u8) -> bool {
         }
     }
     #[cfg(target_os="windows")] {
-       if let Ok(_) = wasapi::set_vol(percent as f32 / 100.0) {
+       if let Ok(_) = wasapi::WASAPI::set_vol(percent as f32 / 100.0) {
             success = Some(true)
        }
     }
@@ -346,7 +347,7 @@ pub fn set_mute(mute: bool) -> bool {
     }
     #[cfg(target_os="windows")]
     {
-       if let Ok(_) = wasapi::set_mute(mute) {
+       if let Ok(_) = wasapi::WASAPI::set_mute(mute) {
             status = true
         } else {
             status = false;
@@ -418,24 +419,10 @@ pub fn set_mute(mute: bool) -> bool {
 pub fn get_mute() -> bool {
     let mut mute = 0;
     #[cfg(target_os="macos")] {
-        mute = match coreaudio::CoreAudio::get_mute().unwrap() {
-            true => {
-                1
-            }
-            false => {
-                0
-            }
-        };
+        return coreaudio::CoreAudio::get_mute().unwrap_or(false);
     }
     #[cfg(target_os="windows")] {
-        mute = match wasapi::get_mute().unwrap_or(false) {
-            true => {
-                1
-            }
-            false => {
-                0
-            }
-        };
+        return wasapi::WASAPI::get_mute().unwrap_or(false);
     }
     #[cfg(target_os="linux")] {
         use std::sync::{Arc, Mutex};
@@ -568,17 +555,40 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    // #[ignore]
     // Change HW ID before running
     fn test_non_default_device() {
-        let device = coreaudio::device::CoreAudioDevice::from_hw_id(0).unwrap();
-        dbg!(device.get_device_hw_id());
-        dbg!(device.get_name());
-        dbg!(device.set_mute(true));
-        dbg!(device.get_vol());
-        dbg!(device.set_vol(0.1));
+        #[cfg(target_os="macos")] {
+            let device = coreaudio::device::CoreAudioDevice::from_hw_id(0).unwrap();
+            dbg!(device.get_device_hw_id());
+            dbg!(device.get_name());
+            dbg!(device.set_mute(true));
+            dbg!(device.get_vol());
+            dbg!(device.set_vol(0.1));
+        }
+        
+        #[cfg(target_os="windows")] {
+            let device = wasapi::device::WASAPIDevice::from_uid("{0.0.0.00000000}.{71e6de77-2df3-4aaf-96ce-6c7e64c3f8d5}".to_string()).unwrap();
+            dbg!(device.get_device_uid());
+            dbg!(device.get_name());
+            dbg!(device.set_mute(false));
+            dbg!(device.get_vol());
+            dbg!(device.set_vol(0.1));
+        }
+
         assert!(false);
 
+    }
+
+    #[test]
+    #[cfg(target_os="windows")]
+    fn get_device_idents() {
+        let devices = wasapi::WASAPI::get_device_identifiers().unwrap();
+        dbg!(&devices);
+        for (device_id, name) in devices {
+            println!("{}", format!("DEVICE ID {}, NAME: {}", unsafe {device_id.to_string()}, name));
+        }
+        assert!(false);
     }
 
     #[test]
