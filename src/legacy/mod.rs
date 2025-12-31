@@ -143,35 +143,68 @@ pub fn get_sound_devices() -> Vec<String> {
         // ALSA cannot detect cards that show up in PipeWire
         // This function records the HW audio devices that are directly connected to the device
         // Bluetooth devices are handled by PipeWire so they will not appear
-        let control = ctl::Ctl::new("pipewire", false);
-        let mut name = String::from("");
-        match control {
-            Ok(_) => {
-                name.push_str("pipewire");
-            },
-            Err(_) => {
-                let control = Mixer::new("pulse", false);
-                match control {
-                    Ok(_) => {
-                        name.push_str("pulse");
-                    },
-                    Err(_) => {
-                        debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
-                    }
-                }
+        // let control = ctl::Ctl::new("pipewire", false);
+        // let mut name = String::from("");
+        // match control {
+        //     Ok(_) => {
+        //         name.push_str("pipewire");
+        //     },
+        //     Err(_) => {
+        //         let control = Mixer::new("pulse", false);
+        //         match control {
+        //             Ok(_) => {
+        //                 name.push_str("pulse");
+        //             },
+        //             Err(_) => {
+        //                 debug_eprintln(&format!("CPVC only supports PipeWire and PulseAudio at the moment, please check back to see if your framework is supported"));
+        //             }
+        //         }
 
-            }
+        //     }
 
-        }
+        // }
+
+        use alsa::pcm::{PCM, HwParams, Access, Format, State};
+        use std::collections::HashSet;
+        use cpal::traits::HostTrait;
 
         let mut count = 0;
         let mut audio_devices = Vec::new();
+        let mut dev = alsa::device_name::HintIter::new_str(None, "pcm")
+            .map(|hint_iter| 
+                hint_iter)
+            .unwrap();
+        for i in dev.next() {
+            dbg!(i);
+        }
+        let adevices = cpal::default_host().devices().unwrap(); 
+        for i in adevices {
+            use cpal::traits::DeviceTrait;
+
+            println!("{:?}", i.name());
+        }
+
+        
         while let Ok(cdev) = ctl::Ctl::new(&format!("hw:{}", count), false) {
             audio_devices.push(cdev);
             count += 1;
         }
 
+        count = 0;
+        let mut audio_devices_clone = Vec::new();
+        while let Ok(cdev) = ctl::Ctl::new(&format!("hw:{}", count), false) {
+            audio_devices_clone.push(cdev);
+            count += 1;
+        }
+
+        for ctl in  audio_devices_clone {
+            println!("card info");
+            println!("{:#?}, {:#?}", ctl.card_info().unwrap().get_longname().unwrap().to_owned(), ctl.card_info().unwrap().get_id().to_owned());
+            // devices.push(format!("{:#?}, {:#?}", ctl.card_info().unwrap().get_mixername().unwrap().to_owned(), ctl.card_info().unwrap().get_card().to_owned()));
+        }
+
         devices.append(&mut audio_devices.into_iter().map(|ctl| ctl.card_info().unwrap().get_mixername().unwrap().to_owned()).collect::<Vec<String>>());
+        
     }
     devices
 }
