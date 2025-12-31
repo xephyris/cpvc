@@ -166,7 +166,7 @@ pub fn get_sound_devices() -> Vec<String> {
 
         use alsa::pcm::{PCM, HwParams, Access, Format, State};
         use std::collections::HashSet;
-        use cpal::traits::HostTrait;
+        // use cpal::traits::HostTrait;
 
         let mut count = 0;
         let mut audio_devices = Vec::new();
@@ -177,12 +177,12 @@ pub fn get_sound_devices() -> Vec<String> {
         for i in dev.next() {
             dbg!(i);
         }
-        let adevices = cpal::default_host().devices().unwrap(); 
-        for i in adevices {
-            use cpal::traits::DeviceTrait;
+        // let adevices = cpal::default_host().devices().unwrap(); 
+        // for i in adevices {
+        //     use cpal::traits::DeviceTrait;
 
-            println!("{:?}", i.name());
-        }
+        //     println!("{:?}", i.name());
+        // }
 
         
         while let Ok(cdev) = ctl::Ctl::new(&format!("hw:{}", count), false) {
