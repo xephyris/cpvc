@@ -40,8 +40,7 @@ pub mod legacy;
 // pub mod device;
 // pub mod cpal;
 
-#[cfg(target_os = "macos")]
-pub mod coreaudio;
+mod coreaudio;
 #[cfg(target_os = "windows")]
 pub mod wasapi;
 #[cfg(target_os = "linux")]
@@ -93,7 +92,7 @@ enum DeviceType {
 pub fn get_sound_devices() -> Vec<String> {
     let mut devices:Vec<String> = Vec::new();
     #[cfg(target_os="macos")] {
-        devices = coreaudio::CoreAudio::get_sound_devices().unwrap();
+        devices = coreaudio::get_sound_devices().unwrap();
     }
     #[cfg(target_os="windows")] {
         devices = wasapi::WASAPI::get_sound_devices().unwrap_or(Vec::new())
@@ -109,7 +108,7 @@ pub fn get_system_volume() -> u8 {
     #[allow(unused_assignments)]
     let mut vol: u8 = 0;
     #[cfg(target_os="macos")] {
-       vol = (coreaudio::CoreAudio::get_vol().unwrap() * 100.0) as u8;
+       vol = (coreaudio::get_vol().unwrap() * 100.0) as u8;
     }
     #[cfg(target_os="windows")] {
         // println!("{}", wasapi::WASAPI::get_vol().unwrap());
@@ -130,7 +129,7 @@ pub fn set_system_volume(percent: u8) -> bool {
     #[allow(unused_assignments)]
     let mut success = None;
     #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::CoreAudio::set_vol(percent as f32 / 100.0) {
+        if let Ok(_) = coreaudio::set_vol(percent as f32 / 100.0) {
             success = Some(true)
         } else {
             success.replace(false);
@@ -153,7 +152,7 @@ pub fn set_system_volume(percent: u8) -> bool {
 pub fn set_mute(mute: bool) -> bool {
     let mut status = false;
     #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::CoreAudio::set_mute(mute) {
+        if let Ok(_) = coreaudio::set_mute(mute) {
             status = true
         } else {
             status = false;
@@ -179,7 +178,7 @@ pub fn set_mute(mute: bool) -> bool {
 
 pub fn get_mute() -> bool {
     #[cfg(target_os="macos")] {
-        return coreaudio::CoreAudio::get_mute().unwrap_or(false);
+        return coreaudio::get_mute().unwrap_or(false);
     }
     #[cfg(target_os="windows")] {
         return wasapi::WASAPI::get_mute().unwrap_or(false);
@@ -293,13 +292,13 @@ mod tests {
     }
 
 
-    #[cfg(target_os="macos")]
-    #[test]
-    #[ignore]
-    fn get_device_details() {
-        println!("{}", get_default_output_dev());
-        assert!(false);
-    }
+    // #[cfg(target_os="macos")]
+    // #[test]
+    // #[ignore]
+    // fn get_device_details() {
+    //     println!("{}", get_default_output_dev());
+    //     assert!(false);
+    // }
 
     // #[cfg(target_os="linux")]
     // #[test]

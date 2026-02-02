@@ -1,68 +1,36 @@
-use objc2_core_audio::kAudioHardwarePropertyDeviceForUID;
-
-use crate::{DeviceType, VolumeControl, VolumeError, debug_eprintln, error::Error, legacy::get_default_output_dev};
-
+// TODO Create CoreAudioExpanded struct for non essential features
 pub mod device;
 
+// #[cfg(not(target_os="macos"))] // Should be disabled, for testing
 #[cfg(target_os="macos")]
-use {
-    std::ffi::c_void,
-    std::ptr::{null, null_mut},
-    std::mem::{size_of},
-    std::ptr::NonNull,
-    core_foundation::{base::TCFType, string::{CFString, CFStringRef}},
-    objc2_core_audio_types::{AudioStreamBasicDescription},
-    objc2_core_audio::{
-        AudioObjectGetPropertyData, AudioObjectSetPropertyData, AudioObjectGetPropertyDataSize,
-        AudioObjectID, AudioObjectPropertyAddress,
-        kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectSystemObject,
-        kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain,
-        kAudioDevicePropertyScopeOutput, kAudioDevicePropertyMute,
-        kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyDeviceNameCFString,
-        kAudioDevicePropertyStreamFormat, kAudioObjectPropertyScopeOutput,
-        kAudioHardwarePropertyDevices, kAudioDevicePropertyStreams,
-        kAudioObjectPropertyScopeInput,
-    },
-};
+pub mod coreaudio {
+    
+    use objc2_core_audio::kAudioHardwarePropertyDeviceForUID;
 
-// TODO Create CoreAudioExpanded struct for non essential features
+    use crate::{DeviceType, coreaudio::device, debug_eprintln, error::Error};
 
-pub struct CoreAudio {
-}
+    #[cfg(target_os="macos")]
+    use {
+        std::ffi::c_void,
+        std::ptr::{null, null_mut},
+        std::mem::{size_of},
+        std::ptr::NonNull,
+        core_foundation::{base::TCFType, string::{CFString, CFStringRef}},
+        objc2_core_audio_types::{AudioStreamBasicDescription},
+        objc2_core_audio::{
+            AudioObjectGetPropertyData, AudioObjectSetPropertyData, AudioObjectGetPropertyDataSize,
+            AudioObjectID, AudioObjectPropertyAddress,
+            kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectSystemObject,
+            kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain,
+            kAudioDevicePropertyScopeOutput, kAudioDevicePropertyMute,
+            kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyDeviceNameCFString,
+            kAudioDevicePropertyStreamFormat, kAudioObjectPropertyScopeOutput,
+            kAudioHardwarePropertyDevices, kAudioDevicePropertyStreams,
+            kAudioObjectPropertyScopeInput,
+        },
+    };
 
-impl VolumeControl for CoreAudio {
-    fn get_sound_devices() -> Result<Vec<String>, Error> {
-        if let Ok(identifiers) = CoreAudio::get_device_identifiers() {
-            Ok(identifiers.into_iter().map(|(_id, name)| name).collect())
-        } else {
-            Err(Error::Placeholder)
-        }
-    }
-
-    fn get_vol() -> Result<f32, Error> {
-        let output_dev = CoreAudio::capture_output_device()?;
-        output_dev.get_vol()
-    }
-
-    fn set_vol(vol: f32) -> Result<(), Error> {
-        let output_dev = CoreAudio::capture_output_device()?;
-        output_dev.set_vol(vol)
-    }
-
-    fn get_mute() -> Result<bool, Error> {
-        let output_dev = CoreAudio::capture_output_device()?;
-        output_dev.get_mute()
-    }
-
-    fn set_mute(mute: bool) -> Result<(), Error> {
-        let output_dev = CoreAudio::capture_output_device()?;
-        output_dev.set_mute(mute)
-    }
-}
-
-impl CoreAudio {
-
-    fn get_device_identifiers() -> Result<Vec<(u32, String)>, Error> {
+    pub(super) fn get_device_identifiers() -> Result<Vec<(u32, String)>, Error> {
         let mut devices:Vec<(u32, String)> = Vec::new();
         let audio_devices_count_address =  AudioObjectPropertyAddress {
             mSelector: kAudioHardwarePropertyDevices,
@@ -103,8 +71,8 @@ impl CoreAudio {
             }
             for device in &device_details {
                 if *device != 0 {
-                    let name = CoreAudio::get_device_name(*device).unwrap();
-                    match CoreAudio::check_device_type(*device) {
+                    let name = get_device_name(*device).unwrap();
+                    match check_device_type(*device) {
                         DeviceType::Input => {
                             // May Add Future Functionality
                         },
@@ -200,7 +168,7 @@ impl CoreAudio {
         }
     }
 
-    pub fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescription, Error> {
+    pub(super) fn get_output_device_details(device_id: u32) -> Result<AudioStreamBasicDescription, Error> {
         let mut property_address = AudioObjectPropertyAddress{
             mSelector: kAudioDevicePropertyStreamFormat,
             mScope: kAudioObjectPropertyScopeOutput,
@@ -234,7 +202,7 @@ impl CoreAudio {
         }
     }
 
-    fn uid_to_hw_id(uid: String) -> Result<u32, Error> {
+    pub(super) fn uid_to_hw_id(uid: String) -> Result<u32, Error> {
         let id_property_address = AudioObjectPropertyAddress {
             mSelector: kAudioHardwarePropertyDeviceForUID,
             mScope: kAudioDevicePropertyScopeOutput,
@@ -246,7 +214,7 @@ impl CoreAudio {
         let mut hw_id: u32 = 0;
         let mut data_size = size_of::<u32>() as u32;
         unsafe {
-            use std::ptr::{NonNull, null};
+            use std::ptr::{NonNull};
             let hw_id_status = AudioObjectGetPropertyData(kAudioObjectSystemObject as u32,
                 NonNull::new_unchecked(&id_property_address as *const _ as *mut _),
                 size_of::<String>() as u32, cf_uid.as_concrete_TypeRef() as *const c_void,
@@ -258,7 +226,7 @@ impl CoreAudio {
         Ok(hw_id)
     }
 
-    fn get_hw_name(device_id: u32) -> Result<String, VolumeError> {
+    pub(super) fn get_hw_name(device_id: u32) -> Result<String, Error> {
         #[cfg(target_os = "macos")]
         {
             use objc2_core_audio::kAudioDevicePropertyDeviceName;
@@ -299,22 +267,22 @@ impl CoreAudio {
                             },
                             Err(e) => {
                                 debug_eprintln(&format!("Failed to get device name. Error: {}", e));
-                                Err(VolumeError::NameCaptureError(e.to_string()))
+                                Err(Error::DeviceAccessFailed(e.to_string()))
                             }
                         }
                     } else {
                         debug_eprintln(&format!("Failed to get device name. Status: {}", status));
-                        Err(VolumeError::NameCaptureError("CoreAudio backend error".to_string()))
+                        Err(Error::DeviceAccessFailed("CoreAudio backend error".to_string()))
                     }
                 } else {
-                    Err(VolumeError::NameCaptureError("CoreAudio backend error".to_string()))
+                    Err(Error::DeviceAccessFailed("CoreAudio backend error".to_string()))
                 }
             }
         }
     }
 
     // Attempt to Capture Device ID of Default Audio Output Device
-    fn capture_output_device() -> Result<device::CoreAudioDevice, Error> {
+    pub(super) fn capture_output_device() -> Result<device::CoreAudioDevice, Error> {
         let mut output_device_address = AudioObjectPropertyAddress {
                 mSelector: kAudioHardwarePropertyDefaultOutputDevice,
                 mScope: kAudioObjectPropertyScopeGlobal,
@@ -341,4 +309,72 @@ impl CoreAudio {
 
     }
 
+    // Volume Controls 
+    pub fn get_sound_devices() -> Result<Vec<String>, Error> {
+        if let Ok(identifiers) = get_device_identifiers() {
+            Ok(identifiers.into_iter().map(|(_id, name)| name).collect())
+        } else {
+            Err(Error::Placeholder)
+        }
+    }
+
+    pub fn get_vol() -> Result<f32, Error> {
+        let output_dev = capture_output_device()?;
+        output_dev.get_vol()
+    }
+
+    pub fn set_vol(vol: f32) -> Result<(), Error> {
+        let output_dev = capture_output_device()?;
+        output_dev.set_vol(vol)
+    }
+
+    pub fn get_mute() -> Result<bool, Error> {
+        let output_dev = capture_output_device()?;
+        output_dev.get_mute()
+    }
+
+    pub fn set_mute(mute: bool) -> Result<(), Error> {
+        let output_dev = capture_output_device()?;
+        output_dev.set_mute(mute)
+    }
+
 }
+
+#[cfg(not(target_os="macos"))] 
+// #[cfg(target_os="macos")] // Should be disabled, for testing
+pub mod coreaudio {
+    use crate::{DeviceType, error::Error};
+
+    pub fn check_device_type(device_id: u32) -> DeviceType {
+        DeviceType::None
+    }
+
+    pub fn get_device_name(device_id: u32) -> Result<String, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    // Volume Controls 
+    pub fn get_sound_devices() -> Result<Vec<String>, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn get_vol() -> Result<f32, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn set_vol(vol: f32) -> Result<(), Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn get_mute() -> Result<bool, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn set_mute(mute: bool) -> Result<(), Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+}
+
+
+pub(crate) use coreaudio::*; 

@@ -6,5 +6,6 @@ pub enum Error {
     VolumeCaptureFailed(String),
     VolumeSetFailed(String),
     MuteSetFailed(String),
+    PlatformUnsupported,
     Placeholder
 }
