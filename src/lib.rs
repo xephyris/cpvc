@@ -33,7 +33,6 @@
 
 use crate::error::Error;
 
-pub mod command;
 pub mod legacy;
 
 // Functionality may be added in future versions

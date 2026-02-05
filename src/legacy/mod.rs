@@ -1,6 +1,6 @@
 
 use std::env;
-
+pub mod command;
 
 #[cfg(target_os="macos")]
 use {
