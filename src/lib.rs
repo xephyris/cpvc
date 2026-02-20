@@ -36,7 +36,7 @@ use crate::error::Error;
 pub mod legacy;
 
 // Functionality may be added in future versions
-// pub mod device;
+pub mod device;
 // pub mod cpal;
 
 mod coreaudio;

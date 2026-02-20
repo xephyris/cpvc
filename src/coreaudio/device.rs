@@ -235,21 +235,13 @@ mod device {
 #[cfg(not(target_os="macos"))]
 // #[cfg(target_os="macos")] // Should be disabled, for testing
 mod device {
-    use crate::{debug_eprintln, error::Error};
+    use crate::{debug_eprintln, device::Device, error::Error};
     #[derive(Default)]
     pub struct CoreAudioDevice {
         device_id: u32,
     }
 
-    impl CoreAudioDevice {
-        pub fn from_name(name: String) -> Result<Self, Error> {
-            Err(Error::PlatformUnsupported)
-        }
-
-        pub fn from_uid(uid: String) -> Result<Self, Error> {
-            Err(Error::PlatformUnsupported)
-        }
-        
+    impl CoreAudioDevice {        
         pub fn from_hw_id(hw_id: u32) -> Result<Self, Error> {
             Err(Error::PlatformUnsupported)
         }
@@ -258,30 +250,12 @@ mod device {
             0
         }
 
-        pub fn get_name(&self) -> Result<String, Error> {
-            Err(Error::PlatformUnsupported)
-        }
-
         pub fn get_hardware_device_name(&self) -> Result<String, Error> {
             Err(Error::PlatformUnsupported)
         }
-
-        pub fn get_vol(&self) -> Result<f32, Error> {
-            Err(Error::PlatformUnsupported)
-        }
-
-        pub fn set_vol(&self, value: f32) -> Result<(), Error> {
-            Err(Error::PlatformUnsupported)
-        }
-
-        pub fn get_mute(&self) -> Result<bool, Error> {
-            Err(Error::PlatformUnsupported)
-        }
-
-        pub fn set_mute(&self, state: bool) -> Result<(), Error> {
-            Err(Error::PlatformUnsupported)
-        }
     }
+
+    impl Device for CoreAudioDevice {}
 }
 
 pub(crate) use device::*; 
