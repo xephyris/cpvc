@@ -1,7 +1,7 @@
 // #[cfg(not(target_os="macos"))] // Should be disabled, for testing
 #[cfg(target_os="macos")]
 mod device {
-    use crate::{debug_eprintln, error::Error};
+    use crate::{debug_eprintln, device::DeviceTrait, error::Error};
     #[cfg(target_os="macos")]
     use {
         std::ffi::c_void,
@@ -22,8 +22,8 @@ mod device {
         device_id: u32,
     }
 
-    impl CoreAudioDevice {
-        pub fn from_name(name: String) -> Result<Self, Error> {
+    impl DeviceTrait for CoreAudioDevice {
+        fn from_name(name: String) -> Result<Self, Error> {
             if let Ok(identifiers) = coreaudio::get_device_identifiers() {
                 for (id, dev_name) in identifiers {
                     if dev_name == name {
@@ -35,38 +35,18 @@ mod device {
             Err(Error::DeviceEnumerationFailed("Failed to identify devices".to_string()))
         }
 
-        pub fn from_uid(uid: String) -> Result<Self, Error> {
+        fn from_uid(uid: String) -> Result<Self, Error> {
             let hw_id = coreaudio::uid_to_hw_id(uid)?;
             Ok(CoreAudioDevice {
                 device_id: hw_id,
             })
         }
-        
-        pub fn from_hw_id(hw_id: u32) -> Result<Self, Error> {
-            if let Ok(identifiers) = coreaudio::get_device_identifiers() {
-                for (id, _dev_name) in identifiers {
-                    if hw_id == id {
-                        return Ok(CoreAudioDevice { device_id: id });
-                    }
-                }
-                return Err(Error::Placeholder);
-            }
-            Err(Error::DeviceEnumerationFailed("Failed to identify devices".to_string()))
-        }
 
-        pub fn get_device_hw_id(&self) -> u32 {
-            self.device_id
-        }
-
-        pub fn get_name(&self) -> Result<String, Error> {
+        fn get_name(&self) -> Result<String, Error> {
             coreaudio::get_device_name(self.device_id)
         }
 
-        pub fn get_hardware_device_name(&self) -> Result<String, Error> {
-            coreaudio::get_hw_name(self.device_id)
-        }
-
-        pub fn get_vol(&self) -> Result<f32, Error> {
+        fn get_vol(&self) -> Result<f32, Error> {
             let mut vol= 0;
             let device_id = self.device_id;
 
@@ -128,7 +108,7 @@ mod device {
             return Ok(vol as f32 / 100.0)
         }
 
-        pub fn set_vol(&self, value: f32) -> Result<(), Error> {
+        fn set_vol(&self, value: f32) -> Result<(), Error> {
             let mut status = None;
             let device_id = self.device_id;
             let device_details = coreaudio::get_output_device_details(device_id);
@@ -174,7 +154,7 @@ mod device {
         if status.unwrap_or(false) {Ok(())} else { Err(Error::Placeholder) }
         }
 
-        pub fn get_mute(&self) -> Result<bool, Error> {
+        fn get_mute(&self) -> Result<bool, Error> {
             let mut mute = 0;
             let device_id = self.device_id;
             let mut mute_property_address = AudioObjectPropertyAddress {
@@ -195,7 +175,7 @@ mod device {
             if mute == 1 { Ok(true) } else { Ok(false) }
         }
 
-        pub fn set_mute(&self, state: bool) -> Result<(), Error> {
+        fn set_mute(&self, state: bool) -> Result<(), Error> {
             let mut status = true;
             let device_id = self.device_id;
             let mut mute_property_address = AudioObjectPropertyAddress {
@@ -227,7 +207,28 @@ mod device {
                 Err(Error::Placeholder)
             }
         }
+    }
 
+    impl CoreAudioDevice {
+                pub fn from_hw_id(hw_id: u32) -> Result<Self, Error> {
+            if let Ok(identifiers) = coreaudio::get_device_identifiers() {
+                for (id, _dev_name) in identifiers {
+                    if hw_id == id {
+                        return Ok(CoreAudioDevice { device_id: id });
+                    }
+                }
+                return Err(Error::Placeholder);
+            }
+            Err(Error::DeviceEnumerationFailed("Failed to identify devices".to_string()))
+        }
+
+        pub fn get_device_hw_id(&self) -> u32 {
+            self.device_id
+        }
+
+        pub fn get_hardware_device_name(&self) -> Result<String, Error> {
+            coreaudio::get_hw_name(self.device_id)
+        }
     }
 }
 
@@ -235,7 +236,7 @@ mod device {
 #[cfg(not(target_os="macos"))]
 // #[cfg(target_os="macos")] // Should be disabled, for testing
 mod device {
-    use crate::{debug_eprintln, device::Device, error::Error};
+    use crate::{debug_eprintln, device::DeviceTrait, error::Error};
     #[derive(Default)]
     pub struct CoreAudioDevice {
         device_id: u32,
@@ -255,7 +256,7 @@ mod device {
         }
     }
 
-    impl Device for CoreAudioDevice {}
+    impl DeviceTrait for CoreAudioDevice {}
 }
 
 pub(crate) use device::*; 

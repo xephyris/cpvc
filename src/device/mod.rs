@@ -1,6 +1,6 @@
 use crate::error::Error;
 
-pub trait Device {
+pub trait DeviceTrait {
     fn from_name(name: String) -> Result<Self, Error> where Self: Sized {
         Err(Error::PlatformUnsupported)
     }
@@ -28,5 +28,9 @@ pub trait Device {
     fn set_mute(&self, state: bool) -> Result<(), Error> {
         Err(Error::PlatformUnsupported)
     }
+
+}
+
+struct Device {
 
 }

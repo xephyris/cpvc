@@ -7,7 +7,7 @@ pub mod coreaudio {
     
     use objc2_core_audio::kAudioHardwarePropertyDeviceForUID;
 
-    use crate::{DeviceType, coreaudio::device, debug_eprintln, error::Error};
+    use crate::{DeviceType, coreaudio::device, debug_eprintln, device::DeviceTrait, error::Error};
 
     #[cfg(target_os="macos")]
     use {

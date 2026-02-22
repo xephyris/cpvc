@@ -207,6 +207,8 @@ mod tests {
     // Change HW ID before running
     fn test_non_default_device() {
         #[cfg(target_os="macos")] {
+            use crate::device::DeviceTrait;
+
             let device = coreaudio::device::CoreAudioDevice::from_hw_id(0).unwrap();
             dbg!(device.get_device_hw_id());
             dbg!(device.get_name());
