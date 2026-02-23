@@ -218,6 +218,8 @@ mod tests {
         }
         
         #[cfg(target_os="windows")] {
+            use crate::device::DeviceTrait;
+
             let device = wasapi::device::WASAPIDevice::from_uid("".to_string()).unwrap();
             dbg!(device.get_device_uid());
             dbg!(device.get_name());

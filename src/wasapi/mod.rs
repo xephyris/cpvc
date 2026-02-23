@@ -5,6 +5,7 @@ use windows::Win32::Media::Audio::{DEVICE_STATE_ACTIVE, IMMDevice, eMultimedia, 
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
 use windows::Win32::System::Com::STGM_READ;
 use crate::VolumeControl;
+use crate::device::DeviceTrait;
 use crate::wasapi::device::WASAPIDevice;
 use crate::{debug_eprintln, error::Error};
 
