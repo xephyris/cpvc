@@ -31,6 +31,17 @@ pub trait DeviceTrait {
 
 }
 
-struct Device {
+struct Device<T: DeviceTrait> {
+    device: T,
+}
 
+impl<T> Device<T> 
+where 
+    T: DeviceTrait
+{
+    pub fn new(device: T) -> Self {
+        Device {
+            device
+        }
+    }
 }
