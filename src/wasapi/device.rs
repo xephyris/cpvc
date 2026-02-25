@@ -5,7 +5,7 @@ mod device {
 
     use windows::{Win32::{Devices::FunctionDiscovery::PKEY_Device_FriendlyName, Media::Audio::{Endpoints::IAudioEndpointVolume, IMMDevice}, System::Com::{CLSCTX_ALL, STGM_READ}}, core::PWSTR,};
     use std::ptr;
-    use crate::{debug_eprintln, device::DeviceTrait, error::Error, wasapi::WASAPI};
+    use crate::{debug_eprintln, device::DeviceTrait, error::Error, wasapi::{self, IMMWrapper}};
 
     pub struct WASAPIDevice {
         device: IMMDevice
@@ -15,7 +15,7 @@ mod device {
         // PWSTRs are not constant and keep changing even between lines, do not use for matching
 
         fn from_name(name: String) -> Result<Self, Error> {
-            let devices = WASAPI::get_device_identifiers()?;
+            let devices = wasapi::get_device_identifiers()?;
             let mut uid = None;
             
             for (u_id, names) in devices {
@@ -29,7 +29,7 @@ mod device {
                 let pwstr = PWSTR(id.as_mut_ptr());
                 let device;
                 unsafe {
-                    let enumerator = WASAPI::get_enumerator();
+                    let enumerator = wasapi::get_enumerator();
                     device = enumerator.GetDevice(pwstr).map_err(|e| Error::DeviceAccessFailed(format!("Failed to capture IMMDevice {e}")))?;
                 }
                 Ok(Self {
@@ -40,7 +40,7 @@ mod device {
             }
         }
     fn from_uid(uid: String) -> Result<Self, Error> {
-            let devices = WASAPI::get_device_identifiers()?;
+            let devices = wasapi::get_device_identifiers()?;
             let mut matched = false;
             for (u_id, _name) in devices {
                 if uid == u_id {
@@ -53,7 +53,7 @@ mod device {
             if matched {
                 let device;
                 unsafe {
-                    let enumerator = WASAPI::get_enumerator();
+                    let enumerator = wasapi::get_enumerator();
                     device = enumerator.GetDevice(pwstr).map_err(|e| Error::DeviceAccessFailed(format!("Failed to capture IMMDevice {e}")))?;
                 }
                 Ok(Self {
@@ -173,11 +173,11 @@ mod device {
     }
 
     impl WASAPIDevice {
-        pub fn from_imm_device(device: IMMDevice) -> Result<Self, Error> {
+        pub fn from_imm_device(wrapper: IMMWrapper) -> Result<Self, Error> {
             let uid; 
-            uid = WASAPI::get_imm_device_uid(&device)?;
+            uid = wasapi::get_imm_device_uid(&wrapper)?;
 
-            let devices = WASAPI::get_device_identifiers()?;
+            let devices = wasapi::get_device_identifiers()?;
             let mut matched = false;
             for (u_id, _name) in devices {
                 if uid == u_id {
@@ -187,7 +187,7 @@ mod device {
             }
             if matched {
                 Ok(Self {
-                    device
+                    device: wrapper.device,
                 })
             } else {
                 Err(Error::DeviceNotFound)
@@ -206,15 +206,18 @@ mod device {
 // #[cfg(target_os="windows")]
 #[cfg(not(target_os="windows"))]
 mod device {
-    use crate::{device::DeviceTrait, error::Error};
+    use crate::{device::DeviceTrait, error::Error, wasapi::IMMWrapper};
 
     pub struct WASAPIDevice {}
 
     impl DeviceTrait for WASAPIDevice {}
 
     impl WASAPIDevice {
-        // TODO: Create IMM Device wrapper
         pub fn get_device_uid(&self) -> Result<String, Error> {
+            Err(Error::PlatformUnsupported)
+        }
+
+        pub fn from_imm_device(wrapper: IMMWrapper) -> Result<Self, Error> {
             Err(Error::PlatformUnsupported)
         }
     }
