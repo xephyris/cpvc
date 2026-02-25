@@ -71,15 +71,22 @@ pub mod coreaudio {
             }
             for device in &device_details {
                 if *device != 0 {
-                    let name = get_device_name(*device).unwrap();
-                    match check_device_type(*device) {
-                        DeviceType::Input => {
-                            // May Add Future Functionality
-                        },
-                        DeviceType::Output => {
-                            devices.push((*device, name));
-                        },
-                        DeviceType::None => {}
+                    if let Ok(name) = get_device_name(*device) {
+                        match check_device_type(*device) {
+                            DeviceType::Input => {
+                                // May Add Future Functionality
+                            },
+                            DeviceType::Output => {
+                                devices.push((*device, name));
+                            },
+                            DeviceType::None => {}
+                        }
+                    } else {
+                        // ! Silent Failures may occur if there is an error when the name certain device ids are requested
+                        // ! From testing, these errors are usually safe to ignore
+                        
+                        debug_eprintln(&format!("Silent Name Capture Failure on device with id: {}", *device));
+                        // println!("Silent Name Capture Failure on device with id: {}", *device);
                     }
                 }
             }
