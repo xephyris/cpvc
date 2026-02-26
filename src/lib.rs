@@ -39,8 +39,7 @@ pub mod legacy;
 pub mod device;
 // pub mod cpal;
 
-mod coreaudio;
-#[cfg(target_os = "windows")]
+pub mod coreaudio;
 pub mod wasapi;
 #[cfg(target_os = "linux")]
 pub mod pulseaudio;
@@ -94,7 +93,7 @@ pub fn get_sound_devices() -> Vec<String> {
         devices = coreaudio::get_sound_devices().unwrap();
     }
     #[cfg(target_os="windows")] {
-        devices = wasapi::WASAPI::get_sound_devices().unwrap_or(Vec::new())
+        devices = wasapi::get_sound_devices().unwrap_or(Vec::new())
     }
     #[cfg(target_os="linux")] {
         devices = pulseaudio::PulseAudio::get_sound_devices().unwrap_or(Vec::new())
@@ -111,7 +110,7 @@ pub fn get_system_volume() -> u8 {
     }
     #[cfg(target_os="windows")] {
         // println!("{}", wasapi::WASAPI::get_vol().unwrap());
-        vol = (wasapi::WASAPI::get_vol().unwrap() * 100.0) as u8;
+        vol = (wasapi::get_vol().unwrap() * 100.0) as u8;
     }
     #[cfg(target_os="linux")] {
         vol = (pulseaudio::PulseAudio::get_vol().unwrap() * 100.0) as u8;
@@ -135,7 +134,7 @@ pub fn set_system_volume(percent: u8) -> bool {
         }
     }
     #[cfg(target_os="windows")] {
-       if let Ok(_) = wasapi::WASAPI::set_vol(percent as f32 / 100.0) {
+       if let Ok(_) = wasapi::set_vol(percent as f32 / 100.0) {
             success = Some(true)
        }
     }
@@ -159,7 +158,7 @@ pub fn set_mute(mute: bool) -> bool {
     }
     #[cfg(target_os="windows")]
     {
-       if let Ok(_) = wasapi::WASAPI::set_mute(mute) {
+       if let Ok(_) = wasapi::set_mute(mute) {
             status = true
         } else {
             status = false;
@@ -180,7 +179,7 @@ pub fn get_mute() -> bool {
         return coreaudio::get_mute().unwrap_or(false);
     }
     #[cfg(target_os="windows")] {
-        return wasapi::WASAPI::get_mute().unwrap_or(false);
+        return wasapi::get_mute().unwrap_or(false);
     }
     #[cfg(target_os="linux")] {
         return pulseaudio::PulseAudio::get_mute().unwrap_or(false);
@@ -218,6 +217,8 @@ mod tests {
         }
         
         #[cfg(target_os="windows")] {
+            use crate::device::DeviceTrait;
+
             let device = wasapi::device::WASAPIDevice::from_uid("".to_string()).unwrap();
             dbg!(device.get_device_uid());
             dbg!(device.get_name());
@@ -243,7 +244,7 @@ mod tests {
     fn get_device_idents() {
         
         #[cfg(target_os="windows")] {
-            let devices = wasapi::WASAPI::get_device_identifiers().unwrap();
+            let devices = wasapi::get_device_identifiers().unwrap();
             dbg!(&devices);
             for (device_id, name) in devices {
                 println!("{}", format!("DEVICE ID {}, NAME: {}", unsafe {device_id.to_string()}, name));
