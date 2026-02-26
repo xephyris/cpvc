@@ -1,5 +1,20 @@
 use crate::error::{self, Error};
 
+#[cfg(target_os = "linux")]
+use crate::pulseaudio::device::PulseAudioDevice;
+#[cfg(target_os = "linux")]
+pub type Device = UnifiedDevice<PulseAudioDevice>;
+
+#[cfg(target_os = "windows")]
+use crate::wasapi::device::WASAPIDevice;
+#[cfg(target_os = "windows")]
+pub type Device = UnifiedDevice<WASAPIDevice>;
+
+#[cfg(target_os = "macos")]
+use crate::coreaudio::device::CoreAudioDevice;
+#[cfg(target_os = "macos")]
+pub type Device = UnifiedDevice<CoreAudioDevice>;
+
 pub trait DeviceTrait {
     fn from_name(name: String) -> Result<Self, Error> where Self: Sized {
         Err(Error::PlatformUnsupported)
@@ -31,22 +46,22 @@ pub trait DeviceTrait {
 
 }
 
-struct Device<T: DeviceTrait> {
+pub struct UnifiedDevice<T: DeviceTrait> {
     device: T,
 }
 
-impl<T> Device<T> 
+impl<T> UnifiedDevice<T> 
 where 
     T: DeviceTrait
 {
     pub fn from_device(device: T) -> Self {
-        Device {
+        UnifiedDevice {
             device
         }
     }
 
     pub fn from_uid(uid: String) -> Result<Self, Error> {
-        Ok(Device {
+        Ok(UnifiedDevice {
             device: {
                 match T::from_uid(uid) {
                     Ok(device) => {
@@ -61,7 +76,7 @@ where
     }
 
     pub fn from_name(name: String) -> Result<Self, Error> {
-        Ok(Device {
+        Ok(UnifiedDevice {
             device: {
                 match T::from_name(name) {
                     Ok(device) => {
@@ -99,7 +114,7 @@ mod test {
 
     #[test]
     fn test_unified_device() {
-        let device = Device::<CoreAudioDevice>::from_name("".to_string()).unwrap();
+        let device = Device::from_name("".to_string()).unwrap();
         dbg!(device.get_mute());
         assert!(false);
     }
