@@ -45,6 +45,7 @@ pub mod wasapi;
 pub mod pulseaudio;
 
 pub mod error;
+pub mod safe;
 
 #[cfg(feature = "debug")]
 fn debug_eprintln(message: &str){
@@ -88,34 +89,12 @@ enum DeviceType {
 
 /// Gathers the human readable device name of each output device detected
 pub fn get_sound_devices() -> Vec<String> {
-    let mut devices:Vec<String> = Vec::new();
-    #[cfg(target_os="macos")] {
-        devices = coreaudio::get_sound_devices().unwrap();
-    }
-    #[cfg(target_os="windows")] {
-        devices = wasapi::get_sound_devices().unwrap_or(Vec::new())
-    }
-    #[cfg(target_os="linux")] {
-        devices = pulseaudio::PulseAudio::get_sound_devices().unwrap_or(Vec::new())
-    }
-    devices
+    safe::get_sound_devices().unwrap_or(Vec::new())
 }
 
 /// Gathers the current volume in percent of the default output device
 pub fn get_system_volume() -> u8 {
-    #[allow(unused_assignments)]
-    let mut vol: u8 = 0;
-    #[cfg(target_os="macos")] {
-       vol = (coreaudio::get_vol().unwrap() * 100.0) as u8;
-    }
-    #[cfg(target_os="windows")] {
-        // println!("{}", wasapi::WASAPI::get_vol().unwrap());
-        vol = (wasapi::get_vol().unwrap() * 100.0) as u8;
-    }
-    #[cfg(target_os="linux")] {
-        vol = (pulseaudio::PulseAudio::get_vol().unwrap() * 100.0) as u8;
-    }
-    vol
+    safe::get_system_volume().unwrap()
 
 }
 
@@ -124,67 +103,23 @@ pub fn get_system_volume() -> u8 {
 /// ## On macOS
 /// `cpvc` needs to mute and unmute the audio device to get the hardware device volume to sync 
 pub fn set_system_volume(percent: u8) -> bool {
-    #[allow(unused_assignments)]
-    let mut success = None;
-    #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::set_vol(percent as f32 / 100.0) {
-            success = Some(true)
-        } else {
-            success.replace(false);
-        }
+    if let Ok(_) = safe::set_system_volume(percent) {
+        true
+    } else {
+        false
     }
-    #[cfg(target_os="windows")] {
-       if let Ok(_) = wasapi::set_vol(percent as f32 / 100.0) {
-            success = Some(true)
-       }
-    }
-    #[cfg(target_os="linux")] {
-        if let Ok(_) = pulseaudio::PulseAudio::set_vol(percent as f32 / 100.0) {
-            success = Some(true)
-       }
-    }
-
-    success.unwrap_or(false)
 }
 
 pub fn set_mute(mute: bool) -> bool {
-    let mut status = false;
-    #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::set_mute(mute) {
-            status = true
-        } else {
-            status = false;
-        }
+    if let Ok(_) = safe::set_mute(mute) {
+        true
+    } else {
+        false
     }
-    #[cfg(target_os="windows")]
-    {
-       if let Ok(_) = wasapi::set_mute(mute) {
-            status = true
-        } else {
-            status = false;
-        }
-    }
-    #[cfg(target_os="linux")] {
-        if let Ok(_) = pulseaudio::PulseAudio::set_mute(mute) {
-            status = true
-        } else {
-            status = false;
-        }
-    }
-    status
 }
 
 pub fn get_mute() -> bool {
-    #[cfg(target_os="macos")] {
-        return coreaudio::get_mute().unwrap_or(false);
-    }
-    #[cfg(target_os="windows")] {
-        return wasapi::get_mute().unwrap_or(false);
-    }
-    #[cfg(target_os="linux")] {
-        return pulseaudio::PulseAudio::get_mute().unwrap_or(false);
-    }
-    false
+    safe::get_mute().unwrap_or(false)
 }
 
 // TODO add get_default_output_device() function back
