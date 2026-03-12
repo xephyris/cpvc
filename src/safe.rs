@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+use crate::VolumeControl;
 #[cfg(target_os = "macos")]
 use crate::coreaudio;
 #[cfg(target_os = "linux")]
