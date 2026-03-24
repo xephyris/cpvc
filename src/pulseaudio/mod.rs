@@ -1,45 +1,18 @@
-use libpulse_binding::{
-    context::{Context, introspect::SinkInfo}, 
-    callbacks::ListResult,
-    mainloop::standard::Mainloop,
-    proplist::Proplist
-};
-use std::sync::{Arc, Mutex};
-use crate::{VolumeControl, debug_eprintln, debug_println, error::Error, pulseaudio::device::PulseAudioDevice};
-
 pub mod device;
 
-
+// #[cfg(not(target_os="linux"))]
+#[cfg(target_os="linux")]
 // Currently no functionality to detect jacks, only output audio cards
-pub struct PulseAudio {}
+pub mod pulseaudio {
+    use libpulse_binding::{
+        context::{Context, introspect::SinkInfo}, 
+        callbacks::ListResult,
+        mainloop::standard::Mainloop,
+        proplist::Proplist
+    };
+    use std::sync::{Arc, Mutex};
+    use crate::{VolumeControl, debug_eprintln, debug_println, device::DeviceTrait, error::Error, pulseaudio::device::PulseAudioDevice};
 
-impl VolumeControl for PulseAudio {
-    fn get_sound_devices() -> Result<Vec<String>, Error> {
-        Ok(PulseAudio::get_device_identifiers()?.into_iter().map(|(_id, name)| name).collect())
-    }
-
-    fn get_vol() -> Result<f32, Error> {
-        let default_dev = PulseAudio::get_default_output_dev()?;
-        default_dev.get_vol()
-    }
-
-    fn set_vol(value: f32) -> Result<(), Error> {
-        let default_dev = PulseAudio::get_default_output_dev()?;
-        default_dev.set_vol(value)
-    }
-
-    fn get_mute() -> Result<bool, Error> {
-        let default_dev = PulseAudio::get_default_output_dev()?;
-        default_dev.get_mute()
-    }
-
-    fn set_mute(state: bool) -> Result<(), Error> {
-        let default_dev = PulseAudio::get_default_output_dev()?;
-        default_dev.set_mute(state)
-    }
-}
-
-impl PulseAudio {
     pub fn get_device_identifiers() -> Result<Vec<(String, String)>, Error> {
         let mut devices: Vec<(String, String)> = Vec::new();
         
@@ -103,7 +76,7 @@ impl PulseAudio {
         Ok(devices)
     }
 
-    pub fn acquire_mainloop_and_context() -> (Mainloop, Context) {
+    pub(super) fn acquire_mainloop_and_context() -> (Mainloop, Context) {
         let mut mainloop = Mainloop::new().expect("Failed to create mainloop");
         let proplist = Proplist::new().unwrap();
         let mut context = Context::new_with_proplist(&mainloop, "CPVC", &proplist)
@@ -132,7 +105,7 @@ impl PulseAudio {
         let default_dev = Arc::new(Mutex::new(String::new()));
         let clone = Arc::clone(&default_dev);
 
-        let (mut mainloop, context) = PulseAudio::acquire_mainloop_and_context();
+        let (mut mainloop, context) = acquire_mainloop_and_context();
         let op = context.introspect().get_sink_info_list( move |info | {
                 match info {
                     libpulse_binding::callbacks::ListResult::Item(device) => {
@@ -160,7 +133,7 @@ impl PulseAudio {
     }
 
     pub fn get_device_id(name: String) -> Result<String, Error> {
-        let devices = PulseAudio::get_device_identifiers()?;
+        let devices = get_device_identifiers()?;
         for (dev_str, names) in devices {
             if names == name {
                 return Ok(dev_str);
@@ -170,7 +143,7 @@ impl PulseAudio {
     }
 
     pub fn get_device_name(id: String) -> Result<String, Error> {
-        let devices = PulseAudio::get_device_identifiers()?;
+        let devices = get_device_identifiers()?;
         for (dev_str, name) in devices {
             if id == dev_str {
                 return Ok(name);
@@ -178,4 +151,78 @@ impl PulseAudio {
         }
         Err(Error::DeviceNotFound)
     }
+
+
+    // Volume Controls
+    pub fn get_sound_devices() -> Result<Vec<String>, Error> {
+        Ok(get_device_identifiers()?.into_iter().map(|(_id, name)| name).collect())
+    }
+
+    pub fn get_vol() -> Result<f32, Error> {
+        let default_dev = get_default_output_dev()?;
+        default_dev.get_vol()
+    }
+
+    pub fn set_vol(value: f32) -> Result<(), Error> {
+        let default_dev = get_default_output_dev()?;
+        default_dev.set_vol(value)
+    }
+
+    pub fn get_mute() -> Result<bool, Error> {
+        let default_dev = get_default_output_dev()?;
+        default_dev.get_mute()
+    }
+
+    pub fn set_mute(state: bool) -> Result<(), Error> {
+        let default_dev = get_default_output_dev()?;
+        default_dev.set_mute(state)
+    }
+    
 }
+
+#[cfg(not(target_os="linux"))]
+// #[cfg(target_os="linux")]
+// Currently no functionality to detect jacks, only output audio cards
+pub mod pulseaudio {
+    pub fn get_device_identifiers() -> Result<Vec<(String, String)>, Error> {
+       Err(Error::PlatformUnsupported)
+    }
+
+    // Default output device does not work when Pro Audio is selected as a playback device
+    pub fn get_default_output_dev() -> Result<PulseAudioDevice, Error> {
+       Err(Error::PlatformUnsupported)
+    }
+
+    pub fn get_device_id(name: String) -> Result<String, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn get_device_name(id: String) -> Result<String, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+
+    // Volume Controls
+    pub fn get_sound_devices() -> Result<Vec<String>, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn get_vol() -> Result<f32, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn set_vol(value: f32) -> Result<(), Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn get_mute() -> Result<bool, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
+    pub fn set_mute(state: bool) -> Result<(), Error> {
+        Err(Error::PlatformUnsupported)
+    }
+    
+}
+
+pub(crate) use pulseaudio::*;
