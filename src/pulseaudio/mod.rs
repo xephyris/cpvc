@@ -184,6 +184,8 @@ pub mod pulseaudio {
 // #[cfg(target_os="linux")]
 // Currently no functionality to detect jacks, only output audio cards
 pub mod pulseaudio {
+    use crate::{error::Error, pulseaudio::device::PulseAudioDevice};
+
     pub fn get_device_identifiers() -> Result<Vec<(String, String)>, Error> {
        Err(Error::PlatformUnsupported)
     }

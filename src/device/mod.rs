@@ -110,7 +110,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::{coreaudio::device::CoreAudioDevice, device::Device};
+
+    use super::*;
 
     #[test]
     fn test_unified_device() {
