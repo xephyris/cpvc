@@ -20,9 +20,11 @@ Basic cross platform crate for interacting with Audio Devices and handling Syste
 
 * Windows:
     * Windows 11 24H2
+    * Windows 11 LTSC 24H2
 
 * Linux:
    * EndeavourOS Mercury
+   * Debian Trixie
 
 ## Development Details
 
@@ -37,6 +39,12 @@ Basic cross platform crate for interacting with Audio Devices and handling Syste
 * Linux: 
     * `libpulse-binding`
     * `libpulse-sys`
+
+# Dependencies 
+* Linux:
+    * Alsa dev package
+        * Debian: `libasound2-dev`
+        * Arch: `alsa-lib`
 
 
 ### Why only PulseAudio?

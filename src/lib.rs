@@ -41,7 +41,6 @@ pub mod device;
 
 pub mod coreaudio;
 pub mod wasapi;
-#[cfg(target_os = "linux")]
 pub mod pulseaudio;
 
 pub mod error;
@@ -96,7 +95,7 @@ pub fn get_sound_devices() -> Vec<String> {
         devices = wasapi::get_sound_devices().unwrap_or(Vec::new())
     }
     #[cfg(target_os="linux")] {
-        devices = pulseaudio::PulseAudio::get_sound_devices().unwrap_or(Vec::new())
+        devices = pulseaudio::get_sound_devices().unwrap_or(Vec::new())
     }
     devices
 }
@@ -113,7 +112,7 @@ pub fn get_system_volume() -> u8 {
         vol = (wasapi::get_vol().unwrap() * 100.0) as u8;
     }
     #[cfg(target_os="linux")] {
-        vol = (pulseaudio::PulseAudio::get_vol().unwrap() * 100.0) as u8;
+        vol = (pulseaudio::get_vol().unwrap() * 100.0) as u8;
     }
     vol
 
@@ -139,7 +138,7 @@ pub fn set_system_volume(percent: u8) -> bool {
        }
     }
     #[cfg(target_os="linux")] {
-        if let Ok(_) = pulseaudio::PulseAudio::set_vol(percent as f32 / 100.0) {
+        if let Ok(_) = pulseaudio::set_vol(percent as f32 / 100.0) {
             success = Some(true)
        }
     }
@@ -165,7 +164,7 @@ pub fn set_mute(mute: bool) -> bool {
         }
     }
     #[cfg(target_os="linux")] {
-        if let Ok(_) = pulseaudio::PulseAudio::set_mute(mute) {
+        if let Ok(_) = pulseaudio::set_mute(mute) {
             status = true
         } else {
             status = false;
@@ -182,7 +181,7 @@ pub fn get_mute() -> bool {
         return wasapi::get_mute().unwrap_or(false);
     }
     #[cfg(target_os="linux")] {
-        return pulseaudio::PulseAudio::get_mute().unwrap_or(false);
+        return pulseaudio::get_mute().unwrap_or(false);
     }
     false
 }
@@ -228,7 +227,9 @@ mod tests {
         }
         
         #[cfg(target_os="linux")] {
-            let device = pulseaudio::device::PulseAudioDevice::from_id("".to_string()).unwrap();
+            use crate::device::DeviceTrait;
+
+            let device = pulseaudio::device::PulseAudioDevice::from_uid("".to_string()).unwrap();
             dbg!(device.get_device_str());
             dbg!(device.get_name());
             dbg!(device.set_mute(false));
@@ -251,7 +252,7 @@ mod tests {
             }
         }
         #[cfg(target_os="linux")] {
-            let devices = pulseaudio::PulseAudio::get_device_identifiers().unwrap();
+            let devices = pulseaudio::get_device_identifiers().unwrap();
             dbg!(&devices);
             for (device_id, name) in devices {
                 println!("{}", format!("DEVICE STR {}, NAME: {}", unsafe {device_id.to_string()}, name));
