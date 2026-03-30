@@ -89,7 +89,7 @@ enum DeviceType {
 pub fn get_sound_devices() -> Vec<String> {
     let mut devices:Vec<String> = Vec::new();
     #[cfg(target_os="macos")] {
-        devices = coreaudio::get_sound_devices().unwrap();
+        devices = coreaudio::get_sound_devices().unwrap_or(Vec::new());
     }
     #[cfg(target_os="windows")] {
         devices = wasapi::get_sound_devices().unwrap_or(Vec::new())
@@ -105,14 +105,14 @@ pub fn get_system_volume() -> u8 {
     #[allow(unused_assignments)]
     let mut vol: u8 = 0;
     #[cfg(target_os="macos")] {
-       vol = (coreaudio::get_vol().unwrap() * 100.0) as u8;
+       vol = (coreaudio::get_vol().unwrap_or(0.0) * 100.0) as u8;
     }
     #[cfg(target_os="windows")] {
         // println!("{}", wasapi::WASAPI::get_vol().unwrap());
-        vol = (wasapi::get_vol().unwrap() * 100.0) as u8;
+        vol = (wasapi::get_vol().unwrap_or(0.0) * 100.0) as u8;
     }
     #[cfg(target_os="linux")] {
-        vol = (pulseaudio::get_vol().unwrap() * 100.0) as u8;
+        vol = (pulseaudio::get_vol().unwrap_or(0.0) * 100.0) as u8;
     }
     vol
 
