@@ -22,12 +22,15 @@
 //!     // Get current system volume for default output in %
 //!     let current_volume: u8 = cpvc::get_system_volume();
 //! 
+//!     // Get if the default audio device is muted
+//!     let mute_status = cpvc::get_mute();
+//! 
 //!     // Set system volume for default output in %
 //!     let volume: u8 = 32;
 //!     let success = cpvc::set_system_volume(volume);
 //!     
 //!     // Mute default output
-//!     let success = cpvc::set_system_volume(0);
+//!     let success = cpvc::set_mute(true);
 //! }
 //! ```
 
