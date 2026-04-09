@@ -34,13 +34,13 @@
 //! }
 //! ```
 
-use crate::error::Error;
+use crate::{device::Device, error::Error};
 
 pub mod legacy;
 
 // Functionality may be added in future versions
 pub mod device;
-// pub mod cpal;
+pub mod cpal;
 
 pub mod coreaudio;
 pub mod wasapi;
@@ -190,6 +190,19 @@ pub fn get_mute() -> bool {
 }
 
 // TODO add get_default_output_device() function back
+
+pub fn get_default_output_device() -> Result<Device, Error>{
+    // #[cfg(target_os="macos")] {
+    //     Device::from_uid(coreaudio::capture_output_device()?.get_device_uid()?);
+    // }
+    #[cfg(target_os="windows")] {
+        return Device::from_uid(wasapi::get_default_output_device()?.get_device_uid()?)
+    }
+    // #[cfg(target_os="linux")] {
+    //     Device::from_uid(pulseaudio::get_default_output_device()?.get_device_uid()?)
+    // }
+    Err(Error::PlatformUnsupported)
+}
 
 #[cfg(test)]
 mod tests {
