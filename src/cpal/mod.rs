@@ -1,14 +1,21 @@
+use cpal::traits::DeviceTrait;
 pub use cpal::*;
 use crate::{debug_eprintln, device::Device, error::Error};
 
 pub trait VolumeControlExt {
     fn default_volume_control(&self) -> Result<VolControl, Error>;
+
+    fn device_voltume_controls(&self) -> Result<VolControl, Error>;
 }
 
 impl VolumeControlExt for cpal::Device {
     fn default_volume_control(&self) -> Result<VolControl, Error> {
         VolControl::new(crate::get_default_output_device()?);
         Err(Error::PlatformUnsupported)
+    }
+
+    fn device_voltume_controls(&self) -> Result<VolControl, Error> {
+        VolControl::from_cpal_id(self.id().map_err(|e| Error::External(e.to_string()))?)
     }
 }
 
@@ -62,7 +69,6 @@ impl VolControl {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
 
     use cpal::traits::{DeviceTrait, HostTrait};
 
@@ -78,7 +84,7 @@ mod tests {
         println!("{:?}", host.id());
         let device = host.default_output_device().expect("no output device available");
         println!("{}", device.name().unwrap());
-        // println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID: {:?}", device.id(), uid_to_hw_id(device.id().unwrap().1));
+        println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID", device.id());
         assert!(false);
     }
 

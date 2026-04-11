@@ -7,5 +7,6 @@ pub enum Error {
     VolumeSetFailed(String),
     MuteSetFailed(String),
     PlatformUnsupported,
-    Placeholder
+    Placeholder,
+    External(String)
 }

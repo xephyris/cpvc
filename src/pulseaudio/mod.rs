@@ -152,6 +152,8 @@ pub mod pulseaudio {
         Err(Error::DeviceNotFound)
     }
 
+    // Add Alsa ID to PulseAudio?
+
 
     // Volume Controls
     pub fn get_sound_devices() -> Result<Vec<String>, Error> {
@@ -177,6 +179,7 @@ pub mod pulseaudio {
         let default_dev = get_default_output_dev()?;
         default_dev.set_mute(state)
     }
+
     
 }
 
