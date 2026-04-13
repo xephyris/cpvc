@@ -10,8 +10,8 @@ pub trait VolumeControlExt {
 
 impl VolumeControlExt for cpal::Device {
     fn default_volume_control(&self) -> Result<VolControl, Error> {
-        VolControl::new(crate::get_default_output_device()?);
-        Err(Error::PlatformUnsupported)
+        Ok(VolControl::new(crate::get_default_output_device()?))
+        // Err(Error::PlatformUnsupported)
     }
 
     fn device_voltume_controls(&self) -> Result<VolControl, Error> {
@@ -31,7 +31,7 @@ impl VolControl {
     }
 
     pub fn from_cpal_id(device_id: DeviceId) -> Result<Self, Error> {
-        let device = match device_id.0.to_string().as_str() {
+        let device = match device_id.0.to_string().to_lowercase().as_str() {
             // "alsa" => {
             //     Device::from_uid(device_id.1)
             // },

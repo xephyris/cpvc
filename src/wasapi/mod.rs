@@ -3,6 +3,7 @@ pub mod device;
 // #[cfg(not(target_os="windows"))]
 #[cfg(target_os="windows")]
 pub mod wasapi {
+    use windows::Win32::Foundation::RPC_E_CHANGED_MODE;
     use windows::core::PWSTR;
     use windows::Win32::System::Com::CLSCTX_ALL;
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
@@ -46,15 +47,18 @@ pub mod wasapi {
         use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 
         unsafe {
-            let _ = CoInitializeEx(None, COINIT_MULTITHREADED).unwrap();
-            let hresult: Result<IMMDeviceEnumerator, Error> = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
-            match hresult {
-                Ok(devices) => {
-                    devices
-                },
-                Err(error) => {
-                    panic!("{}", error);
+            if CoInitializeEx(None, COINIT_MULTITHREADED) == RPC_E_CHANGED_MODE {
+                let hresult: Result<IMMDeviceEnumerator, Error> = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
+                match hresult {
+                    Ok(devices) => {
+                        devices
+                    },
+                    Err(error) => {
+                        panic!("{}", error);
+                    }
                 }
+            } else {
+                panic!("COM Initialization Failed")
             }
         }
     }
