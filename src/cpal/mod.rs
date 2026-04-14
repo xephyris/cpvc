@@ -103,6 +103,19 @@ mod tests {
     }
 
     #[test]
+    fn cpal_device_mute() {
+        use cpal::traits::HostTrait;
+        use crate::cpal::traits::DeviceTrait;
+        let host = cpal::default_host();
+        let device = host.default_output_device().expect("no output device available");
+        println!("{}", device.name().unwrap());
+        let vol_control =  device.default_volume_control().unwrap();
+        dbg!(vol_control.set_mute(true));
+        dbg!(vol_control.is_mute());
+        assert!(false);
+    }
+
+    #[test]
     fn cpal_devices() {
         let host = cpal::default_host();
         for device in host.devices().unwrap() {
