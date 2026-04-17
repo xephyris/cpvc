@@ -83,7 +83,7 @@ mod tests {
         let host = cpal::default_host();
         println!("{:?}", host.id());
         let device = host.default_output_device().expect("no output device available");
-        println!("{}", device.name().unwrap());
+        println!("{}", device.description().unwrap().name());
         println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID", device.id());
         assert!(false);
     }
@@ -94,7 +94,7 @@ mod tests {
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
         let device = host.default_output_device().expect("no output device available");
-        println!("{}", device.name().unwrap());
+        println!("{}", device.description().unwrap().name());
         let vol_control =  device.default_volume_control().unwrap();
         dbg!(vol_control.set_vol(0.20));
         dbg!(vol_control.get_vol());
@@ -108,7 +108,7 @@ mod tests {
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
         let device = host.default_output_device().expect("no output device available");
-        println!("{}", device.name().unwrap());
+        println!("{}", device.description().unwrap().name());
         let vol_control =  device.default_volume_control().unwrap();
         dbg!(vol_control.set_mute(true));
         dbg!(vol_control.is_mute());
@@ -119,7 +119,7 @@ mod tests {
     fn cpal_devices() {
         let host = cpal::default_host();
         for device in host.devices().unwrap() {
-            println!("{}", device.name().unwrap_or_default());
+            println!("{}", device.description().unwrap().name());
             println!("{:?}", device.id().unwrap());
         }
         assert!(false);
