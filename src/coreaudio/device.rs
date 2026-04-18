@@ -42,6 +42,10 @@ mod device {
             })
         }
 
+        fn get_uid(&self) -> Result<String, Error> {
+            coreaudio::hw_id_to_uid(self.device_id)
+        }
+
         fn get_name(&self) -> Result<String, Error> {
             coreaudio::get_device_name(self.device_id)
         }

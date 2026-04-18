@@ -28,6 +28,10 @@ pub trait DeviceTrait {
         Err(Error::PlatformUnsupported)
     }
 
+    fn get_uid(&self) -> Result<String, Error> {
+        Err(Error::PlatformUnsupported)
+    }
+
     fn get_vol(&self) -> Result<f32, Error> {
         Err(Error::PlatformUnsupported)
     }

@@ -192,9 +192,10 @@ pub fn get_mute() -> bool {
 // TODO add get_default_output_device() function back
 
 pub fn get_default_output_device() -> Result<Device, Error>{
-    // #[cfg(target_os="macos")] {
-    //     Device::from_uid(coreaudio::capture_output_device()?.get_device_uid()?);
-    // }
+    #[cfg(target_os="macos")] {
+        use crate::device::DeviceTrait;
+        return Device::from_uid(coreaudio::get_default_output_device()?.get_uid()?)
+    }
     #[cfg(target_os="windows")] {
         return Device::from_uid(wasapi::get_default_output_device()?.get_device_uid()?)
     }
