@@ -34,7 +34,7 @@
 //! }
 //! ```
 
-use crate::{device::Device, error::Error};
+use crate::{device::{Device, DeviceTrait}, error::Error};
 
 pub mod legacy;
 
@@ -199,9 +199,9 @@ pub fn get_default_output_device() -> Result<Device, Error>{
     #[cfg(target_os="windows")] {
         return Device::from_uid(wasapi::get_default_output_device()?.get_device_uid()?)
     }
-    // #[cfg(target_os="linux")] {
-    //     Device::from_uid(pulseaudio::get_default_output_device()?.get_device_uid()?)
-    // }
+    #[cfg(target_os="linux")] {
+        return Device::from_uid(pulseaudio::get_default_output_dev()?.get_uid()?)
+    }
     Err(Error::PlatformUnsupported)
 }
 
@@ -302,6 +302,13 @@ mod tests {
         dbg!(get_mute());
         dbg!(get_system_volume());
         assert!(false);
+    }
+
+    #[cfg(target_os="linux")]
+    #[test]
+    fn test_alsa_get_device() {
+        dbg!(pulseaudio::convert_alsa_id("2".to_string(), "0".to_string()));
+        assert!(false)
     }
 
     #[cfg(target_os="macos")] 

@@ -153,7 +153,41 @@ pub mod pulseaudio {
     }
 
     // Add Alsa ID to PulseAudio?
+    pub fn convert_alsa_id(alsa_card: String, alsa_id: String) -> Result<String, Error> {
+        let possible_device = Arc::new(Mutex::new(String::new()));
+        let clone = Arc::clone(&possible_device);
 
+        let (mut mainloop, context) = acquire_mainloop_and_context();
+        let op = context.introspect().get_sink_info_list( move |info | {
+                match info {
+                    libpulse_binding::callbacks::ListResult::Item(device) => {
+                        let properties = &device.proplist;
+                        let alsa_card_out = properties.get_str("alsa.card");
+                        let alsa_device = properties.get_str("alsa.device");
+
+                        if alsa_card_out.as_ref() == Some(&alsa_card) && alsa_device.as_ref() == Some(&alsa_id) {
+                            *clone.lock().unwrap() = device.name.as_ref().unwrap().to_string();
+                        }
+                    },
+                    libpulse_binding::callbacks::ListResult::End => {
+                        debug_println("Devices finished")
+                    },
+                    libpulse_binding::callbacks::ListResult::Error => {
+                        debug_eprintln("error gathering device information");
+                    },
+                }
+            });
+        while op.get_state() == libpulse_binding::operation::State::Running {
+            mainloop.iterate(false);
+        }
+        mainloop.quit(libpulse_binding::def::Retval(0));
+        let device_name = possible_device.lock().unwrap().clone();
+        if device_name != "" {
+            Ok(device_name)
+        } else {
+            Err(Error::DeviceNotFound)
+        }
+    }
 
     // Volume Controls
     pub fn get_sound_devices() -> Result<Vec<String>, Error> {

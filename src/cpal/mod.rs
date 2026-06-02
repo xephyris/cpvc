@@ -1,11 +1,11 @@
 use cpal::traits::DeviceTrait;
 pub use cpal::*;
-use crate::{debug_eprintln, device::Device, error::Error};
+use crate::{device::Device, error::Error, get_default_output_device, pulseaudio};
 
 pub trait VolumeControlExt {
     fn default_volume_control(&self) -> Result<VolControl, Error>;
 
-    fn device_voltume_controls(&self) -> Result<VolControl, Error>;
+    fn device_volume_controls(&self) -> Result<VolControl, Error>;
 }
 
 impl VolumeControlExt for cpal::Device {
@@ -14,7 +14,7 @@ impl VolumeControlExt for cpal::Device {
         // Err(Error::PlatformUnsupported)
     }
 
-    fn device_voltume_controls(&self) -> Result<VolControl, Error> {
+    fn device_volume_controls(&self) -> Result<VolControl, Error> {
         VolControl::from_cpal_id(self.id().map_err(|e| Error::External(e.to_string()))?)
     }
 }
@@ -32,9 +32,29 @@ impl VolControl {
 
     pub fn from_cpal_id(device_id: DeviceId) -> Result<Self, Error> {
         let device = match device_id.0.to_string().to_lowercase().as_str() {
-            // "alsa" => {
-            //     Device::from_uid(device_id.1)
-            // },
+            "alsa" => {
+                if device_id.1 == "default".to_string() {
+                    get_default_output_device()
+                } else {
+                    if let Some(card_str) = device_id.1.find("CARD=") && let Some(id_str) = device_id.1.find("DEV=") {
+                        if let Some(card_num) = device_id.1.chars().nth(card_str + 5).map(|c| c.to_string())
+                            && let Some(id_num) = device_id.1.chars().nth(id_str + 4).map(|c| c.to_string()) {
+                            match pulseaudio::convert_alsa_id(card_num, id_num) {
+                                Ok(dev_id) => {
+                                    Device::from_uid(dev_id)
+                                },
+                                Err(_) => {
+                                    Err(Error::DeviceNotFound)
+                                }
+                            }
+                        } else {
+                            Err(Error::DeviceNotFound)
+                        }
+                    } else {
+                        Err(Error::DeviceNotFound)
+                    }
+                }                
+            },
             "coreaudio" => {
                 Device::from_uid(device_id.1)
             },
@@ -70,7 +90,9 @@ impl VolControl {
 #[cfg(test)]
 mod tests {
 
-    use cpal::traits::{DeviceTrait, HostTrait};
+    use std::str::FromStr;
+
+use cpal::{DeviceId, traits::{DeviceTrait, HostTrait}};
 
     use crate::cpal::VolumeControlExt;
 
@@ -81,9 +103,12 @@ mod tests {
         use cpal::traits::HostTrait;
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
-        println!("{:?}", host.id());
-        let device = host.default_output_device().expect("no output device available");
+        // let device = host.default_output_device().expect("no output device available");
+        let id = &DeviceId::from_str("").unwrap();
+        let device = host.device_by_id(id).expect("no output device available");
+        
         println!("{}", device.description().unwrap().name());
+        println!("{:?}", host.id());
         println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID", device.id());
         assert!(false);
     }
@@ -93,9 +118,11 @@ mod tests {
         use cpal::traits::HostTrait;
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
-        let device = host.default_output_device().expect("no output device available");
+        // let device = host.default_output_device().expect("no output device available");
+        let id = &DeviceId::from_str("").unwrap();
+        let device = host.device_by_id(id).expect("no output device available");
         println!("{}", device.description().unwrap().name());
-        let vol_control =  device.default_volume_control().unwrap();
+        let vol_control =  device.device_volume_controls().unwrap();
         dbg!(vol_control.set_vol(0.20));
         dbg!(vol_control.get_vol());
         // println!("{:?}", device.default_volume_control().unwrap());
