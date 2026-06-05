@@ -36,7 +36,9 @@ impl VolControl {
                 if device_id.1 == "default".to_string() {
                     get_default_output_device()
                 } else {
+                    
                     if let Some(card_str) = device_id.1.find("CARD=") && let Some(id_str) = device_id.1.find("DEV=") {
+                        // println!("card{card_str} id_str {id_str}" );
                         if let Some(card_num) = device_id.1.chars().nth(card_str + 5).map(|c| c.to_string())
                             && let Some(id_num) = device_id.1.chars().nth(id_str + 4).map(|c| c.to_string()) {
                             match pulseaudio::convert_alsa_id(card_num, id_num) {
@@ -71,6 +73,10 @@ impl VolControl {
         })
     }
 
+    pub fn consume(self) -> Device {
+        self.device
+    }
+
     pub fn set_vol(&self, val: f32) -> Result<(), Error> {
         self.device.set_vol(val)
     }
@@ -103,13 +109,31 @@ use cpal::{DeviceId, traits::{DeviceTrait, HostTrait}};
         use cpal::traits::HostTrait;
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
-        // let device = host.default_output_device().expect("no output device available");
-        let id = &DeviceId::from_str("").unwrap();
-        let device = host.device_by_id(id).expect("no output device available");
+        let device = host.default_output_device().expect("no output device available");
+        // let id = &DeviceId::from_str("").unwrap();
+        // let device = host.device_by_id(id).expect("no output device available");
         
         println!("{}", device.description().unwrap().name());
         println!("{:?}", host.id());
         println!("DEVICE UID: {:?}, DEVICE CONVERTED HW_ID", device.id());
+        assert!(false);
+    }
+    
+    #[test]
+    fn cpal_test_device_general() {
+        use cpal::traits::HostTrait;
+        use crate::cpal::traits::DeviceTrait;
+        let host = cpal::default_host();
+        // let device = host.default_output_device().expect("no output device available");
+        let id = &DeviceId::from_str("alsa:hw:CARD=0,DEV=0").unwrap();
+        let device = host.device_by_id(id).expect("no output device available");
+        println!("{}", device.description().unwrap().name());
+        let vol_control =  device.device_volume_controls().unwrap();
+        let raw_device = vol_control.consume();
+        dbg!(raw_device.get_name());
+        dbg!(raw_device.set_mute(false));
+        dbg!(raw_device.get_vol());
+        dbg!(raw_device.set_vol(0.1));
         assert!(false);
     }
 
@@ -125,6 +149,7 @@ use cpal::{DeviceId, traits::{DeviceTrait, HostTrait}};
         let vol_control =  device.device_volume_controls().unwrap();
         dbg!(vol_control.set_vol(0.20));
         dbg!(vol_control.get_vol());
+        
         // println!("{:?}", device.default_volume_control().unwrap());
         assert!(false);
     }

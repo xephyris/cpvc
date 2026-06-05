@@ -20,13 +20,13 @@
 //!     let devices: Vec<String> = cpvc::get_sound_devices();
 //! 
 //!     // Get current system volume for default output in %
-//!     let current_volume: u8 = cpvc::get_system_volume();
+//!     let current_volume: f32 = cpvc::get_system_volume();
 //! 
 //!     // Get if the default audio device is muted
 //!     let mute_status = cpvc::get_mute();
 //! 
 //!     // Set system volume for default output in %
-//!     let volume: u8 = 32;
+//!     let volume: f32 = 0.32;
 //!     let success = cpvc::set_system_volume(volume);
 //!     
 //!     // Mute default output
@@ -34,7 +34,7 @@
 //! }
 //! ```
 
-use crate::{device::{Device, DeviceTrait}, error::Error};
+use crate::{device::{Device, DeviceTrait}, error::Error::{self, PlatformUnsupported}};
 
 pub mod legacy;
 
@@ -89,104 +89,121 @@ enum DeviceType {
 }
 
 /// Gathers the human readable device name of each output device detected
-pub fn get_sound_devices() -> Vec<String> {
-    let mut devices:Vec<String> = Vec::new();
+pub fn try_get_sound_devices() -> Result<Vec<String>, Error> {
     #[cfg(target_os="macos")] {
-        devices = coreaudio::get_sound_devices().unwrap_or(Vec::new());
+        return coreaudio::get_sound_devices();
     }
     #[cfg(target_os="windows")] {
-        devices = wasapi::get_sound_devices().unwrap_or(Vec::new())
+        return wasapi::get_sound_devices();
     }
     #[cfg(target_os="linux")] {
-        devices = pulseaudio::get_sound_devices().unwrap_or(Vec::new())
+        return pulseaudio::get_sound_devices();
     }
-    devices
+    Err(Error::PlatformUnsupported)
+}
+
+pub fn get_sound_devices() -> Vec<String> {
+    try_get_sound_devices().unwrap_or(Vec::new())
 }
 
 /// Gathers the current volume in percent of the default output device
-pub fn get_system_volume() -> u8 {
+pub fn try_get_system_volume() -> Result<f32, Error> {
     #[allow(unused_assignments)]
-    let mut vol: u8 = 0;
     #[cfg(target_os="macos")] {
-       vol = (coreaudio::get_vol().unwrap_or(0.0) * 100.0) as u8;
+       return coreaudio::get_vol();
     }
     #[cfg(target_os="windows")] {
-        // println!("{}", wasapi::WASAPI::get_vol().unwrap());
-        vol = (wasapi::get_vol().unwrap_or(0.0) * 100.0) as u8;
+        return wasapi::get_vol();
     }
     #[cfg(target_os="linux")] {
-        vol = (pulseaudio::get_vol().unwrap_or(0.0) * 100.0) as u8;
+        return pulseaudio::get_vol();
     }
-    vol
-
+    Err(PlatformUnsupported)
 }
 
+pub fn get_system_volume() -> f32 {
+    try_get_system_volume().unwrap_or(0.0)
+}
+
+pub fn get_system_volume_u8() -> u8 {
+    (get_system_volume() * 100.0) as u8
+}
 
 /// Sets the current volume in percent of the default output device
 /// ## On macOS
 /// `cpvc` needs to mute and unmute the audio device to get the hardware device volume to sync 
-pub fn set_system_volume(percent: u8) -> bool {
-    #[allow(unused_assignments)]
-    let mut success = None;
+pub fn try_set_system_volume(percent: f32) -> Result<bool, Error> {
     #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::set_vol(percent as f32 / 100.0) {
-            success = Some(true)
-        } else {
-            success.replace(false);
-        }
+        coreaudio::set_vol(percent)?;
+        return Ok(true);
     }
     #[cfg(target_os="windows")] {
-       if let Ok(_) = wasapi::set_vol(percent as f32 / 100.0) {
-            success = Some(true)
-       }
+        wasapi::set_vol(percent)?;
+        return Ok(true);
     }
     #[cfg(target_os="linux")] {
-        if let Ok(_) = pulseaudio::set_vol(percent as f32 / 100.0) {
-            success = Some(true)
-       }
+        pulseaudio::set_vol(percent)?;
+        return Ok(true);
     }
-
-    success.unwrap_or(false)
+    Err(PlatformUnsupported)
 }
 
-pub fn set_mute(mute: bool) -> bool {
-    let mut status = false;
+pub fn set_system_volume(percent: f32) -> bool {
+    if let Ok(status) = try_set_system_volume(percent) {
+        return status
+    } else {
+        false
+    }
+}
+
+pub fn set_system_volume_u8(percent: u8) -> bool {
+    set_system_volume(percent as f32 / 100.0)
+}
+
+pub fn try_set_mute(mute: bool) -> Result<bool, Error> {
     #[cfg(target_os="macos")] {
-        if let Ok(_) = coreaudio::set_mute(mute) {
-            status = true
-        } else {
-            status = false;
-        }
+        coreaudio::set_mute(mute)?.map();
+        return Ok(true);
     }
     #[cfg(target_os="windows")]
     {
-       if let Ok(_) = wasapi::set_mute(mute) {
-            status = true
-        } else {
-            status = false;
-        }
+        wasapi::set_mute(mute)?;
+        return Ok(true);
     }
     #[cfg(target_os="linux")] {
-        if let Ok(_) = pulseaudio::set_mute(mute) {
-            status = true
-        } else {
-            status = false;
-        }
+        pulseaudio::set_mute(mute)?;
+        return Ok(true);
     }
-    status
+    Err(PlatformUnsupported)
+}
+
+pub fn set_mute(mute: bool) -> bool {
+    if let Ok(status) = try_set_mute(mute) {
+        status
+    } else {
+        false
+    }
+}
+
+pub fn try_get_mute() -> Result<bool, Error> {
+    #[cfg(target_os="macos")] {
+        return coreaudio::get_mute();
+    }
+    #[cfg(target_os="windows")] {
+        return wasapi::get_mute();
+    }
+    #[cfg(target_os="linux")] {
+        return pulseaudio::get_mute();
+    }
+    Err(PlatformUnsupported)
 }
 
 pub fn get_mute() -> bool {
-    #[cfg(target_os="macos")] {
-        return coreaudio::get_mute().unwrap_or(false);
+    if let Ok(status) = try_get_mute() {
+        status
+    } else {
+        false
     }
-    #[cfg(target_os="windows")] {
-        return wasapi::get_mute().unwrap_or(false);
-    }
-    #[cfg(target_os="linux")] {
-        return pulseaudio::get_mute().unwrap_or(false);
-    }
-    false
 }
 
 // TODO add get_default_output_device() function back
@@ -280,7 +297,7 @@ mod tests {
 
     #[test]
     fn set_sound_test() {
-        dbg!(set_system_volume(2));
+        dbg!(set_system_volume_u8(2));
         assert!(false);
     }
 

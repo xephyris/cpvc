@@ -94,6 +94,10 @@ where
         })
     }
 
+    pub fn get_name(&self) -> Result<String, Error> {
+        self.device.get_name()
+    }
+
     pub fn get_vol(&self) -> Result<f32, Error> {
         self.device.get_vol()
     }
