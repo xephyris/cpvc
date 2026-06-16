@@ -146,6 +146,7 @@ dependencies = [
  "alsa",
  "core-foundation",
  "cpal",
+ "cpvc",
  "libpulse-binding",
  "libpulse-sys",
  "objc2-core-audio",

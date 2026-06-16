@@ -40,6 +40,8 @@ pub mod legacy;
 
 // Functionality may be added in future versions
 pub mod device;
+
+#[cfg(feature = "cpal")]
 pub mod cpal;
 
 pub mod coreaudio;

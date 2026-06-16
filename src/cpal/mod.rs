@@ -33,29 +33,32 @@ impl VolControl {
     pub fn from_cpal_id(device_id: DeviceId) -> Result<Self, Error> {
         let device = match device_id.0.to_string().to_lowercase().as_str() {
             "alsa" => {
-                if device_id.1 == "default".to_string() {
-                    get_default_output_device()
-                } else {
-                    
-                    if let Some(card_str) = device_id.1.find("CARD=") && let Some(id_str) = device_id.1.find("DEV=") {
-                        // println!("card{card_str} id_str {id_str}" );
-                        if let Some(card_num) = device_id.1.chars().nth(card_str + 5).map(|c| c.to_string())
-                            && let Some(id_num) = device_id.1.chars().nth(id_str + 4).map(|c| c.to_string()) {
-                            match pulseaudio::convert_alsa_id(card_num, id_num) {
-                                Ok(dev_id) => {
-                                    Device::from_uid(dev_id)
-                                },
-                                Err(_) => {
-                                    Err(Error::DeviceNotFound)
+                #[cfg(target_os = "linux")] {
+                    if device_id.1 == "default".to_string() {
+                        get_default_output_device()
+                    } else {
+                        
+                        if let Some(card_str) = device_id.1.find("CARD=") && let Some(id_str) = device_id.1.find("DEV=") {
+                            // println!("card{card_str} id_str {id_str}" );
+                            if let Some(card_num) = device_id.1.chars().nth(card_str + 5).map(|c| c.to_string())
+                                && let Some(id_num) = device_id.1.chars().nth(id_str + 4).map(|c| c.to_string()) {
+                                match pulseaudio::convert_alsa_id(card_num, id_num) {
+                                    Ok(dev_id) => {
+                                        Device::from_uid(dev_id)
+                                    },
+                                    Err(_) => {
+                                        Err(Error::DeviceNotFound)
+                                    }
                                 }
+                            } else {
+                                Err(Error::DeviceNotFound)
                             }
                         } else {
                             Err(Error::DeviceNotFound)
                         }
-                    } else {
-                        Err(Error::DeviceNotFound)
                     }
-                }                
+                } 
+                Err(Error::PlatformUnsupported)              
             },
             "coreaudio" => {
                 Device::from_uid(device_id.1)
@@ -143,11 +146,11 @@ use cpal::{DeviceId, traits::{DeviceTrait, HostTrait}};
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
         // let device = host.default_output_device().expect("no output device available");
-        let id = &DeviceId::from_str("").unwrap();
+        let id = &DeviceId::from_str("wasapi:{0.0.0.00000000}.{a5691277-0929-449c-90f3-243d6a2c8307}").unwrap();
         let device = host.device_by_id(id).expect("no output device available");
         println!("{}", device.description().unwrap().name());
         let vol_control =  device.device_volume_controls().unwrap();
-        dbg!(vol_control.set_vol(0.20));
+        dbg!(vol_control.set_vol(0.10));
         dbg!(vol_control.get_vol());
         
         // println!("{:?}", device.default_volume_control().unwrap());

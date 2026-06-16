@@ -39,7 +39,8 @@ mod device {
                 Err(Error::DeviceNotFound)
             }
         }
-    fn from_uid(uid: String) -> Result<Self, Error> {
+
+        fn from_uid(uid: String) -> Result<Self, Error> {
             let devices = wasapi::get_device_identifiers()?;
             let mut matched = false;
             for (u_id, _name) in devices {

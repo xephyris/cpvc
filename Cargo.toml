@@ -11,7 +11,10 @@ authors = ["xephyris"]
 edition = "2024"
 
 [dependencies]
-cpal = "0.17.3"
+cpal = { version = "0.17.3", optional = true }
+
+[dev-dependencies]
+cpvc = { path = ".", features = ["cpal"]}
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61.3", features = ["Win32", "Win32_Media", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System", 
@@ -32,3 +35,4 @@ objc2-core-audio-types = "0.3.1"
 
 [features]
 debug = []
+cpal = ["dep:cpal"]
