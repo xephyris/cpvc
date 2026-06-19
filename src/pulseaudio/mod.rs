@@ -126,9 +126,6 @@ pub mod pulseaudio {
         }
         mainloop.quit(libpulse_binding::def::Retval(0));
         let device_name = default_dev.lock().unwrap().clone();
-
-       
-
         PulseAudioDevice::from_name(device_name)
     }
 

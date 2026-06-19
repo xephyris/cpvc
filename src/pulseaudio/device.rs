@@ -44,6 +44,10 @@ mod device {
         }
 
 
+        fn get_uid(&self) -> Result<String, Error> {
+            Ok(self.dev_str.clone())
+        }
+
         fn get_name(&self) -> Result<String, Error> {
             pulseaudio::get_device_name(self.dev_str.clone())
         }

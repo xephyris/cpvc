@@ -37,7 +37,6 @@ impl VolControl {
                     if device_id.1 == "default".to_string() {
                         get_default_output_device()
                     } else {
-                        
                         if let Some(card_str) = device_id.1.find("CARD=") && let Some(id_str) = device_id.1.find("DEV=") {
                             // println!("card{card_str} id_str {id_str}" );
                             if let Some(card_num) = device_id.1.chars().nth(card_str + 5).map(|c| c.to_string())
@@ -58,6 +57,7 @@ impl VolControl {
                         }
                     }
                 } 
+                #[cfg(not(target_os="linux"))]
                 Err(Error::PlatformUnsupported)              
             },
             "coreaudio" => {
@@ -145,9 +145,9 @@ use cpal::{DeviceId, traits::{DeviceTrait, HostTrait}};
         use cpal::traits::HostTrait;
         use crate::cpal::traits::DeviceTrait;
         let host = cpal::default_host();
-        // let device = host.default_output_device().expect("no output device available");
-        let id = &DeviceId::from_str("wasapi:{0.0.0.00000000}.{a5691277-0929-449c-90f3-243d6a2c8307}").unwrap();
-        let device = host.device_by_id(id).expect("no output device available");
+        let device = host.default_output_device().expect("no output device available");
+        // let id = &DeviceId::from_str("").unwrap();
+        // let device = host.device_by_id(id).expect("no output device available");
         println!("{}", device.description().unwrap().name());
         let vol_control =  device.device_volume_controls().unwrap();
         dbg!(vol_control.set_vol(0.10));
