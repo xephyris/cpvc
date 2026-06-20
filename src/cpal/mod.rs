@@ -180,6 +180,15 @@ use cpal::{DeviceId, traits::{DeviceTrait, HostTrait}};
         assert!(false);
     }
 
+    #[test]
+    fn cpal_current_id() {
+        let host = cpal::default_host();
+        let device = host.default_output_device().expect("no output device available");
+        println!("{}", device.description().unwrap().name());
+        println!("{:?}", device.id());
+        assert!(false);
+    }
+
     // #[test]
     // fn cpal_from_uid() {
     //     use cpal::traits::`{HostTrait, DeviceTrait};
