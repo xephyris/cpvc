@@ -38,8 +38,8 @@ use crate::{device::{Device, DeviceTrait}, error::Error::{self, PlatformUnsuppor
 
 pub mod legacy;
 
-// Functionality may be added in future versions
 pub mod device;
+pub mod api;
 
 #[cfg(feature = "cpal")]
 pub mod cpal;
