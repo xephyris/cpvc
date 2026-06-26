@@ -39,7 +39,6 @@ use crate::{device::{Device, DeviceTrait}, error::Error::{self, PlatformUnsuppor
 pub mod legacy;
 
 pub mod device;
-pub mod api;
 
 #[cfg(feature = "cpal")]
 pub mod cpal;
@@ -208,8 +207,6 @@ pub fn get_mute() -> bool {
     }
 }
 
-// TODO add get_default_output_device() function back
-
 pub fn get_default_output_device() -> Result<Device, Error>{
     #[cfg(target_os="macos")] {
         use crate::device::DeviceTrait;
@@ -226,7 +223,6 @@ pub fn get_default_output_device() -> Result<Device, Error>{
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use super::*;
 
     #[test]
@@ -337,19 +333,4 @@ mod tests {
         assert!(false)
     }
 
-
-    // #[cfg(target_os="macos")]
-    // #[test]
-    // #[ignore]
-    // fn get_device_details() {
-    //     println!("{}", get_default_output_dev());
-    //     assert!(false);
-    // }
-
-    // #[cfg(target_os="linux")]
-    // #[test]
-    // fn get_pulse_output_devices() {
-    //     println!("{}", get_default_output_dev());
-    //     assert!(false);
-    // }
 }
