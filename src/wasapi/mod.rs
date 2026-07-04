@@ -47,7 +47,7 @@ pub mod wasapi {
         use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 
         unsafe {
-            if CoInitializeEx(None, COINIT_MULTITHREADED) == RPC_E_CHANGED_MODE {
+            if CoInitializeEx(None, COINIT_MULTITHREADED) != RPC_E_CHANGED_MODE {
                 let hresult: Result<IMMDeviceEnumerator, Error> = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
                 match hresult {
                     Ok(devices) => {
