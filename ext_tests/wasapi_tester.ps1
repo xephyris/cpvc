@@ -13,7 +13,6 @@
 #
 # PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
 # ==============================================================================
-
 param(
     [switch]$ListAll,
     [switch]$ListOut,
@@ -21,18 +20,17 @@ param(
     [switch]$Active,
     [switch]$Disabled,
     [switch]$Disconnected,
-    [switch]$NF, # No Formatting flag
-    [string]$F,  # Custom Format flag (S=Status, N=Name, I=Id)
+    [switch]$NF,
+    [string]$F,
     [string]$Id,
     [string]$Name,
     
-    # Volume/Mute controls
-    [float]$SetVolume,
+    [string]$SetVolume,
     [switch]$GetVolume,
     [switch]$Mute,
     [switch]$Unmute,
     [switch]$GetMute,
-    [string]$DeviceName,
+    [string]$DeviceName, # Kept for backwards compatibility
     
     [ValidateSet("Name", "Type", "Id", "State")]
     [string]$Out
@@ -40,81 +38,91 @@ param(
 
 Add-Type -TypeDefinition @'
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Globalization;
 
 [Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IAudioEndpointVolume
+public interface IAudioEndpointVol
 {
-    int RegisterControlChangeNotify(IntPtr pNotify);           
-    int UnregisterControlChangeNotify(IntPtr pNotify);         
-    int GetChannelCount(out uint pnChannelCount);              
-    int SetMasterVolumeLevel(float fLevelDB, IntPtr pguidEventContext);      
-    int SetMasterVolumeLevelScalar(float fLevel, IntPtr pguidEventContext);  
-    int GetMasterVolumeLevel(out float pfLevelDB);             
-    int GetMasterVolumeLevelScalar(out float pfLevel);         
-    int SetChannelVolumeLevel(uint nChannel, float fLevelDB, IntPtr pguidEventContext);     
-    int SetChannelVolumeLevelScalar(uint nChannel, float fLevel, IntPtr pguidEventContext); 
-    int GetChannelVolumeLevel(uint nChannel, out float pfLevelDB);     
-    int GetChannelVolumeLevelScalar(uint nChannel, out float pfLevel); 
-    int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, IntPtr pguidEventContext); 
-    int GetMute(out bool pbMute);                              
-    int QueryHardwareSupport(out uint pdwHardwareSupportMask); 
-    int GetVolumeRange(out float pflVolumeMindB, out float pflVolumeMaxdB, out float pflVolumeIncrementdB); 
-    int GetVolumeStepInfo(out uint pnStep, out uint pnStepCount); 
-    int VolumeStepUp(IntPtr pguidEventContext);                
-    int VolumeStepDown(IntPtr pguidEventContext);              
+    int RegisterControlChangeNotify(IntPtr pNotify);
+    int UnregisterControlChangeNotify(IntPtr pNotify);
+    int GetChannelCount(out uint pnChannelCount);
+    int SetMasterVolumeLevel(float fLevelDB, IntPtr pguidEventContext);
+    int SetMasterVolumeLevelScalar(float fLevel, IntPtr pguidEventContext);
+    int GetMasterVolumeLevel(out float pfLevelDB);
+    int GetMasterVolumeLevelScalar(out float pfLevel);
+    int SetChannelVolumeLevel(uint nChannel, float fLevelDB, IntPtr pguidEventContext);
+    int SetChannelVolumeLevelScalar(uint nChannel, float fLevel, IntPtr pguidEventContext);
+    int GetChannelVolumeLevel(uint nChannel, out float pfLevelDB);
+    int GetChannelVolumeLevelScalar(uint nChannel, out float pfLevel);
+    int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, IntPtr pguidEventContext);
+    int GetMute(out bool pbMute);
+    int QueryHardwareSupport(out uint pdwHardwareSupportMask);
+    int GetVolumeRange(out float pflVolumeMindB, out float pflVolumeMaxdB, out float pflVolumeIncrementdB);
+    int GetVolumeStepInfo(out uint pnStep, out uint pnStepCount);
+    int VolumeStepUp(IntPtr pguidEventContext);
+    int VolumeStepDown(IntPtr pguidEventContext);
 }
 
-[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IMMDevice
+[Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface IPropStore
 {
-    int Activate(ref Guid id, int clsCtx, IntPtr activationParams, out IntPtr ppInterface);
-    int OpenPropertyStore(int access, out IntPtr props);
-    int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
-    int GetState(out int state);
-}
-
-[Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IMMDeviceCollection
-{
-    int GetCount(out uint count);
-    int Item(uint index, out IMMDevice device);
+    [PreserveSig] int GetCount(out uint cProps);
+    [PreserveSig] int GetAt(uint iProp, out PropKey pkey);
+    [PreserveSig] int GetValue(ref PropKey key, out PropVar pv);
+    [PreserveSig] int SetValue(ref PropKey key, ref PropVar pv);
+    [PreserveSig] int Commit();
 }
 
 [StructLayout(LayoutKind.Sequential)]
-struct PROPERTYKEY
+internal struct PropKey
 {
     public Guid fmtid;
-    public int pid;
+    public UInt32 pid;
 }
 
-// Using IntPtr for PropVariant to bypass CLR marshaling bug (E_NOINTERFACE)
-[Guid("8863808B-CA88-4744-9F89-FEA49B2AB03E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IPropertyStore
+[StructLayout(LayoutKind.Explicit)]
+internal struct PropVar
+{
+    [FieldOffset(0)] public ushort vt;
+    [FieldOffset(8)] public IntPtr pointerVal;
+}
+
+[ComImport]
+[Guid("D666063F-1587-4E43-81F1-B948E807363F")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface IMMDev
+{
+    [PreserveSig]
+    int Activate(ref Guid iid, uint dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.Interface)] out object ppInterface);
+    
+    [PreserveSig] 
+    int OpenPropertyStore(uint stgmAccess, out IPropStore properties);
+
+    [PreserveSig]
+    int GetId([MarshalAs(UnmanagedType.LPWStr)] out string ppstrId);
+
+    [PreserveSig]
+    int GetState(out int pdwState);
+}
+
+[Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevCollection
 {
     int GetCount(out uint count);
-    int GetAt(uint index, out PROPERTYKEY key);
-    int GetValue(ref PROPERTYKEY key, IntPtr pv);
-    int SetValue(ref PROPERTYKEY key, IntPtr pv);
-    int Commit();
+    int Item(uint index, out IMMDev device);
 }
 
 [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IMMDeviceEnumerator
+interface IMMDevEnumerator
 {
-    int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection collection);
-    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+    int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDevCollection collection);
+    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDev endpoint);
 }
 
 [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] 
-class MMDeviceEnumeratorComObject { }
-
-internal static class NativeMethods
-{
-    [DllImport("Ole32.dll", PreserveSig = false)]
-    public static extern void PropVariantClear(IntPtr pvar);
-}
+class MMDevEnumComObj { }
 
 public class AudioDevice
 {
@@ -124,127 +132,40 @@ public class AudioDevice
     public int State { get; set; }
 }
 
-public class Audio
+public class AudioCtrl
 {
-    static readonly PROPERTYKEY PKEY_Device_FriendlyName = new PROPERTYKEY {
+    private static PropKey PKEY_Device_FriendlyName = new PropKey
+    {
         fmtid = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"),
         pid = 14
     };
 
-    private static string ReadDeviceNameFromPropertyStore(IPropertyStore props)
+    private static string GetDeviceName(IMMDev device)
     {
-        PROPERTYKEY key = PKEY_Device_FriendlyName;
-        // Allocate 16 bytes for PROPVARIANT (standard size for the union)
-        IntPtr pvPtr = Marshal.AllocCoTaskMem(16);
-        try
+        IPropStore store;
+        if (device.OpenPropertyStore(0, out store) == 0)
         {
-            Marshal.ThrowExceptionForHR(props.GetValue(ref key, pvPtr));
-            
-            // VT_LPWSTR (Unicode string pointer) is type 31
-            short vt = Marshal.ReadInt16(pvPtr);
-            if (vt == 31)
+            PropVar prop;
+            if (store.GetValue(ref PKEY_Device_FriendlyName, out prop) == 0)
             {
-                // The string pointer is at offset 8 in the PROPVARIANT struct
-                IntPtr pwszVal = Marshal.ReadIntPtr(pvPtr, 8);
-                return Marshal.PtrToStringUni(pwszVal);
-            }
-            return null;
-        }
-        finally
-        {
-            NativeMethods.PropVariantClear(pvPtr);
-            Marshal.FreeCoTaskMem(pvPtr);
-        }
-    }
-
-    private static string ReadDeviceName(IMMDevice device)
-    {
-        IntPtr propStorePtr;
-        Marshal.ThrowExceptionForHR(device.OpenPropertyStore(0, out propStorePtr));
-        try
-        {
-            IPropertyStore props = (IPropertyStore)Marshal.GetObjectForIUnknown(propStorePtr);
-            try
-            {
-                string name = ReadDeviceNameFromPropertyStore(props);
-                return string.IsNullOrEmpty(name) ? "Unknown Device" : name;
-            }
-            finally { Marshal.ReleaseComObject(props); }
-        }
-        finally { Marshal.Release(propStorePtr); }
-    }
-
-    private static void ExecuteVolumeAction(string deviceName, Action<IAudioEndpointVolume> action)
-    {
-        IMMDeviceEnumerator enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
-        IMMDevice device = null;
-
-        try
-        {
-            if (string.IsNullOrEmpty(deviceName))
-            {
-                Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 0, out device));
-            }
-            else
-            {
-                IMMDeviceCollection collection;
-                Marshal.ThrowExceptionForHR(enumerator.EnumAudioEndpoints(0, 7, out collection));
-                try
+                if (prop.vt == 31)
                 {
-                    uint count;
-                    Marshal.ThrowExceptionForHR(collection.GetCount(out count));
-                    bool found = false;
-                    for (uint i = 0; i < count; i++)
-                    {
-                        IMMDevice d;
-                        Marshal.ThrowExceptionForHR(collection.Item(i, out d));
-                        try
-                        {
-                            string name = ReadDeviceName(d);
-                            if (string.Equals(name, deviceName, StringComparison.OrdinalIgnoreCase))
-                            {
-                                device = d;
-                                found = true;
-                                break;
-                            }
-                        }
-                        finally 
-                        { 
-                            if (!found) Marshal.ReleaseComObject(d); 
-                        }
-                    }
-                    if (!found) throw new Exception("Device not found: " + deviceName);
+                    string name = Marshal.PtrToStringUni(prop.pointerVal);
+                    Marshal.FreeCoTaskMem(prop.pointerVal);
+                    return name;
                 }
-                finally { Marshal.ReleaseComObject(collection); }
             }
-
-            IntPtr volumePtr;
-            Guid epvid = typeof(IAudioEndpointVolume).GUID;
-            Marshal.ThrowExceptionForHR(device.Activate(ref epvid, 23, IntPtr.Zero, out volumePtr));
-            try
-            {
-                IAudioEndpointVolume volume = (IAudioEndpointVolume)Marshal.GetObjectForIUnknown(volumePtr);
-                try
-                {
-                    action(volume);
-                }
-                finally { Marshal.ReleaseComObject(volume); }
-            }
-            finally { Marshal.Release(volumePtr); }
+            Marshal.ReleaseComObject(store);
         }
-        finally
-        {
-            if (device != null) Marshal.ReleaseComObject(device);
-            Marshal.ReleaseComObject(enumerator);
-        }
+        return "Unknown Device";
     }
 
-    public static List<AudioDevice> GetDevices(int dataFlow = -1)
+    public static List<AudioDevice> GetDevices(int dataFlow)
     {
         var devices = new List<AudioDevice>();
-        IMMDeviceEnumerator enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+        IMMDevEnumerator enumerator = (IMMDevEnumerator)new MMDevEnumComObj();
         
-        int[] flowsToEnum = dataFlow == -1 ? new int[] { 0, 1 } : new int[] { dataFlow };
+        int[] flowsToEnum = (dataFlow == -1) ? new int[] { 0, 1 } : new int[] { dataFlow };
         string[] flowNames = { "Playback (Output)", "Recording (Input)" };
         
         try
@@ -252,8 +173,7 @@ public class Audio
             for (int f = 0; f < flowsToEnum.Length; f++)
             {
                 int flow = flowsToEnum[f];
-                IMMDeviceCollection collection;
-                // stateMask = 7 gets all devices (Active, Disabled, Disconnected)
+                IMMDevCollection collection;
                 Marshal.ThrowExceptionForHR(enumerator.EnumAudioEndpoints(flow, 7, out collection));
                 try
                 {
@@ -262,17 +182,17 @@ public class Audio
                     
                     for (uint i = 0; i < count; i++)
                     {
-                        IMMDevice dev;
-                        Marshal.ThrowExceptionForHR(collection.Item(i, out dev));
+                        IMMDev device;
+                        Marshal.ThrowExceptionForHR(collection.Item(i, out device));
                         try
                         {
                             string deviceId;
-                            Marshal.ThrowExceptionForHR(dev.GetId(out deviceId));
+                            Marshal.ThrowExceptionForHR(device.GetId(out deviceId));
                             
-                            string name = ReadDeviceName(dev);
-                            
+                            string name = GetDeviceName(device);
+
                             int state;
-                            Marshal.ThrowExceptionForHR(dev.GetState(out state));
+                            Marshal.ThrowExceptionForHR(device.GetState(out state));
                             
                             devices.Add(new AudioDevice
                             {
@@ -282,7 +202,7 @@ public class Audio
                                 State = state
                             });
                         }
-                        finally { Marshal.ReleaseComObject(dev); }
+                        finally { Marshal.ReleaseComObject(device); }
                     }
                 }
                 finally { Marshal.ReleaseComObject(collection); }
@@ -293,36 +213,108 @@ public class Audio
         return devices;
     }
 
-    public static float GetVolume(string deviceName = null)
+    public static void ExecuteVolumeAction(string deviceIdentifier, Action<IAudioEndpointVol> action)
+    {
+        IMMDevEnumerator enumerator = (IMMDevEnumerator)new MMDevEnumComObj();
+        IMMDev device = null;
+
+        try
+        {
+            if (string.IsNullOrEmpty(deviceIdentifier))
+            {
+                Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 0, out device));
+            }
+            else
+            {
+                IMMDevCollection collection;
+                Marshal.ThrowExceptionForHR(enumerator.EnumAudioEndpoints(0, 7, out collection));
+                try
+                {
+                    uint count;
+                    Marshal.ThrowExceptionForHR(collection.GetCount(out count));
+                    bool found = false;
+                    for (uint i = 0; i < count; i++)
+                    {
+                        IMMDev d;
+                        Marshal.ThrowExceptionForHR(collection.Item(i, out d));
+                        try
+                        {
+                            string name = GetDeviceName(d);
+                            string id = null;
+                            Marshal.ThrowExceptionForHR(d.GetId(out id));
+
+                            // UPDATED: Now matches against BOTH Name and ID
+                            if (string.Equals(name, deviceIdentifier, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(id, deviceIdentifier, StringComparison.OrdinalIgnoreCase))
+                            {
+                                device = d;
+                                found = true;
+                                break;
+                            }
+                        }
+                        finally
+                        {
+                            if (!found) Marshal.ReleaseComObject(d);
+                        }
+                    }
+                    if (!found) throw new Exception("Device not found: " + deviceIdentifier);
+                }
+                finally { Marshal.ReleaseComObject(collection); }
+            }
+
+            object volumeObj = null;
+            Guid epvid = typeof(IAudioEndpointVol).GUID;
+            Marshal.ThrowExceptionForHR(device.Activate(ref epvid, 23, IntPtr.Zero, out volumeObj));
+            
+            if (volumeObj != null)
+            {
+                IAudioEndpointVol endpointVolume = (IAudioEndpointVol)volumeObj;
+                action(endpointVolume);
+                Marshal.ReleaseComObject(endpointVolume);
+            }
+        }
+        finally
+        {
+            if (device != null) Marshal.ReleaseComObject(device);
+            Marshal.ReleaseComObject(enumerator);
+        }
+    }
+
+    public static float GetVolume(string deviceIdentifier = null)
     {
         float v = -1f;
-        ExecuteVolumeAction(deviceName, (vol) => {
+        ExecuteVolumeAction(deviceIdentifier, (vol) => {
             Marshal.ThrowExceptionForHR(vol.GetMasterVolumeLevelScalar(out v));
         });
         return v;
     }
 
-    public static void SetVolume(string deviceName, float level)
+    public static void ApplyVolume(string deviceIdentifier, string rawInput)
     {
-        // Clamp level between 0 and 1
-        level = Math.Max(0f, Math.Min(1f, level));
-        ExecuteVolumeAction(deviceName, (vol) => {
-            Marshal.ThrowExceptionForHR(vol.SetMasterVolumeLevelScalar(level, IntPtr.Zero));
+        string cleanInput = rawInput.Trim().Replace(',', '.');
+        double level = double.Parse(cleanInput, CultureInfo.InvariantCulture);
+        
+        if (level > 1.0) level = level / 100.0;
+        
+        float fLevel = (float)Math.Max(0.0, Math.Min(1.0, level));
+        
+        ExecuteVolumeAction(deviceIdentifier, (vol) => {
+            Marshal.ThrowExceptionForHR(vol.SetMasterVolumeLevelScalar(fLevel, IntPtr.Zero));
         });
     }
 
-    public static bool GetMute(string deviceName = null)
+    public static bool GetMute(string deviceIdentifier = null)
     {
         bool mute = false;
-        ExecuteVolumeAction(deviceName, (vol) => {
+        ExecuteVolumeAction(deviceIdentifier, (vol) => {
             Marshal.ThrowExceptionForHR(vol.GetMute(out mute));
         });
         return mute;
     }
 
-    public static void SetMute(string deviceName, bool muted)
+    public static void SetMute(string deviceIdentifier, bool muted)
     {
-        ExecuteVolumeAction(deviceName, (vol) => {
+        ExecuteVolumeAction(deviceIdentifier, (vol) => {
             Marshal.ThrowExceptionForHR(vol.SetMute(muted, IntPtr.Zero));
         });
     }
@@ -338,31 +330,35 @@ function Get-StateString {
     }
 }
 
-if ($SetVolume -ge 0 -or $GetVolume -or $Mute -or $Unmute -or $GetMute) {
+if (($PSBoundParameters.ContainsKey('SetVolume') -and ![string]::IsNullOrWhiteSpace($SetVolume)) -or $GetVolume -or $Mute -or $Unmute -or $GetMute) {
     try {
-        if ($SetVolume -ge 0) {
-            $level = [Math]::Max(0, [Math]::Min(1, $SetVolume))
-            [Audio]::SetVolume($DeviceName, $level)
-            Write-Output "Volume set to $([Math]::Round($level * 100))%"
+        # Priority: -Id first, then -Name, then legacy -DeviceName
+        $TargetDevice = if ($Id) { $Id } elseif ($Name) { $Name } else { $DeviceName }
+
+        if ($PSBoundParameters.ContainsKey('SetVolume') -and ![string]::IsNullOrWhiteSpace($SetVolume)) {
+            [AudioCtrl]::ApplyVolume($TargetDevice, $SetVolume)
+            
+            $vol = [AudioCtrl]::GetVolume($TargetDevice)
+            Write-Output "Volume set to $([Math]::Round($vol * 100))%"
         }
         
         if ($GetVolume) {
-            $vol = [Audio]::GetVolume($DeviceName)
+            $vol = [AudioCtrl]::GetVolume($TargetDevice)
             Write-Output $([Math]::Round($vol * 100))
         }
         
         if ($Mute) {
-            [Audio]::SetMute($DeviceName, $true)
+            [AudioCtrl]::SetMute($TargetDevice, $true)
             Write-Output "Muted"
         }
         
         if ($Unmute) {
-            [Audio]::SetMute($DeviceName, $false)
+            [AudioCtrl]::SetMute($TargetDevice, $false)
             Write-Output "Unmuted"
         }
         
         if ($GetMute) {
-            $muted = [Audio]::GetMute($DeviceName)
+            $muted = [AudioCtrl]::GetMute($TargetDevice)
             Write-Output $muted
         }
     }
@@ -380,7 +376,7 @@ if ($Id -or $Name) {
         exit 1
     }
 
-    $Devices = [Audio]::GetDevices(-1)
+    $Devices = [AudioCtrl]::GetDevices(-1)
     $TargetDevice = $null
 
     if ($Id) {
@@ -411,9 +407,8 @@ if ($ListAll -or $ListOut -or $ListIn) {
     if ($ListOut) { $FlowParam = 0 }
     elseif ($ListIn) { $FlowParam = 1 }
 
-    $Devices = [Audio]::GetDevices($FlowParam)
+    $Devices = [AudioCtrl]::GetDevices($FlowParam)
 
-    # Apply State Filters
     $AllowedStates = @()
     if ($Active)       { $AllowedStates += 1 }
     if ($Disabled)     { $AllowedStates += 2 }
@@ -423,14 +418,11 @@ if ($ListAll -or $ListOut -or $ListIn) {
         $Devices = $Devices | Where-Object { $AllowedStates -contains $_.State }
     }
 
-    # Parse Custom Format string if provided (e.g. "S,N,I")
-    # Removes spaces and splits by comma
     $FormatTokens = @()
     if ($F) {
         $FormatTokens = ($F.ToUpper() -replace '\s', '') -split ','
     }
 
-    # Print Headers ONLY if -NF and -F are NOT set
     if (-not $NF -and -not $F) {
         Write-Output ""
         Write-Output ("{0,-12} {1,-45} {2}" -f "Status", "Device Friendly Name", "Device ID")
@@ -442,9 +434,7 @@ if ($ListAll -or $ListOut -or $ListIn) {
         
         $StateStr = Get-StateString -State $device.State
 
-        # Output logic based on flags
         if ($F) {
-            # CUSTOM FORMAT: Build array based on letters provided, then join with comma
             $outParts = @()
             foreach ($t in $FormatTokens) {
                 switch ($t) {
@@ -456,11 +446,9 @@ if ($ListAll -or $ListOut -or $ListIn) {
             Write-Output ($outParts -join ', ')
         }
         elseif ($NF) {
-            # NO FORMATTING: Just output the default columns without headers/separators/categories
             "{0,-12} {1,-45} {2}" -f $StateStr, $device.Name, $device.Id
         }
         else {
-            # DEFAULT FORMATTING: Includes Categories and Headers
             if ($device.Type -ne $LastType) {
                 Write-Output "`n[$($device.Type)]"
                 $LastType = $device.Type
@@ -481,14 +469,14 @@ Write-Output "    ./script.ps1 -ListOut -Active -NF"
 Write-Output '    ./script.ps1 -ListIn -F "N, I"'
 Write-Output ""
 Write-Output "  Property Lookup:"
-Write-Output '  ./script.ps1 -Id "{0.0.1.00000000}.{...}" -Out Name'
-Write-Output '  ./script.ps1 -Name "Speakers" -Out State'
+Write-Output '    ./script.ps1 -Id "{0.0.1.00000000}.{...}" -Out Name'
+Write-Output '    ./script.ps1 -Name "Speakers" -Out State'
 Write-Output ""
-Write-Output "  Volume/Mute Controls:"
+Write-Output "  Volume/Mute Controls (Accepts 0-100 for percentage):"
 Write-Output "    ./script.ps1 -GetVolume"
-Write-Output "    ./script.ps1 -SetVolume 0.5"
-Write-Output "    ./script.ps1 -Mute"
-Write-Output '    ./script.ps1 -Unmute -DeviceName "Speakers"'
+Write-Output "    ./script.ps1 -SetVolume 50"
+Write-Output '    ./script.ps1 -SetVolume 80 -Name "Speakers"'
+Write-Output '    ./script.ps1 -Mute -Id "{0.0.1.00000000}.{...}"'
 Write-Output "    ./script.ps1 -GetMute"
 Write-Output ""
 & $MyInvocation.MyCommand.Path -ListAll
