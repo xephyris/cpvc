@@ -3,6 +3,9 @@
 CPVC Command library uses `std::process::Command` and the systems local tools for the same feature set instead of built in Rust crates.
 
 ## Submodule Status
+> [!IMPORTANT]  
+> This is an archive of the old `cpvc::command` module and is different from the module in the base folder
+
 >[!CAUTION]  
 > Due to the maturity of `cpvc`, `cpvc::command` is no longer maintained and will not be receiving updates. \
 Only critical issues will be resolved. `cpvc` is the recommended replacement with similar functionality.

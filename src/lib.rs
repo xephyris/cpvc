@@ -37,6 +37,8 @@
 use crate::{device::{Device, DeviceTrait}, error::Error::{self, PlatformUnsupported}};
 
 pub mod legacy;
+#[cfg(debug_assertions)]
+mod command;
 
 pub mod device;
 
@@ -219,118 +221,4 @@ pub fn get_default_output_device() -> Result<Device, Error>{
         return Device::from_uid(pulseaudio::get_default_output_dev()?.get_uid()?)
     }
     Err(Error::PlatformUnsupported)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-
-    fn sound_devices() {
-        dbg!(get_sound_devices());
-        assert!(false);
-    }
-
-    #[test]
-    // #[ignore]
-    // Change HW ID before running
-    fn test_non_default_device() {
-        #[cfg(target_os="macos")] {
-            use crate::device::DeviceTrait;
-
-            let device = coreaudio::device::CoreAudioDevice::from_hw_id(0).unwrap();
-            dbg!(device.get_device_hw_id());
-            dbg!(device.get_name());
-            dbg!(device.set_mute(true));
-            dbg!(device.get_vol());
-            dbg!(device.set_vol(0.1));
-        }
-        
-        #[cfg(target_os="windows")] {
-            use crate::device::DeviceTrait;
-
-            let device = wasapi::device::WASAPIDevice::from_uid("".to_string()).unwrap();
-            dbg!(device.get_device_uid());
-            dbg!(device.get_name());
-            dbg!(device.set_mute(false));
-            dbg!(device.get_vol());
-            dbg!(device.set_vol(0.1));
-        }
-        
-        #[cfg(target_os="linux")] {
-            use crate::device::DeviceTrait;
-
-            let device = pulseaudio::device::PulseAudioDevice::from_uid("".to_string()).unwrap();
-            dbg!(device.get_device_str());
-            dbg!(device.get_name());
-            dbg!(device.set_mute(false));
-            dbg!(device.get_vol());
-            dbg!(device.set_vol(0.1));
-        }
-
-        assert!(false);
-
-    }
-
-    #[test]
-    fn get_device_idents() {
-        
-        #[cfg(target_os="windows")] {
-            let devices = wasapi::get_device_identifiers().unwrap();
-            dbg!(&devices);
-            for (device_id, name) in devices {
-                println!("{}", format!("DEVICE ID {}, NAME: {}", unsafe {device_id.to_string()}, name));
-            }
-        }
-        #[cfg(target_os="linux")] {
-            let devices = pulseaudio::get_device_identifiers().unwrap();
-            dbg!(&devices);
-            for (device_id, name) in devices {
-                println!("{}", format!("DEVICE STR {}, NAME: {}", unsafe {device_id.to_string()}, name));
-            }
-        }
-        assert!(false);
-    }
-
-    #[test]
-    fn set_sound_test() {
-        dbg!(set_system_volume_u8(2));
-        assert!(false);
-    }
-
-    #[test]
-    fn get_sound_test() {
-        dbg!(get_system_volume());
-        assert!(false);
-    }
-
-    #[test]
-    fn set_mute_test() {
-        dbg!(set_mute(true));
-        dbg!(get_system_volume());
-        assert!(false);
-    }
-
-    #[test]
-    fn get_mute_status() {
-        dbg!(get_mute());
-        dbg!(get_system_volume());
-        assert!(false);
-    }
-
-    #[cfg(target_os="linux")]
-    #[test]
-    fn test_alsa_get_device() {
-        dbg!(pulseaudio::convert_alsa_id("2".to_string(), "0".to_string()));
-        assert!(false)
-    }
-
-    #[cfg(target_os="macos")] 
-    #[test]
-    fn get_dev_hw_name() {
-        // dbg!(get_hw_name(capture_output_device_id().unwrap()));
-        assert!(false)
-    }
-
 }
