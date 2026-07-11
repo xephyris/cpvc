@@ -31,7 +31,7 @@ impl VolControl {
     }
 
     pub fn from_cpal_id(device_id: DeviceId) -> Result<Self, Error> {
-        let device = match device_id.0.to_string().to_lowercase().as_str() {
+        let device = match device_id.host().to_string().to_lowercase().as_str() {
             "alsa" => {
                 #[cfg(target_os = "linux")] {
                     if device_id.1 == "default".to_string() {
@@ -61,10 +61,10 @@ impl VolControl {
                 Err(Error::PlatformUnsupported)              
             },
             "coreaudio" => {
-                Device::from_uid(device_id.1)
+                Device::from_uid(device_id.id().to_string())
             },
             "wasapi" => {
-                Device::from_uid(device_id.1)
+                Device::from_uid(device_id.id().to_string())
             },
             _ => {
                 Err(Error::PlatformUnsupported)

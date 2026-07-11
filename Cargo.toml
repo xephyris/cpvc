@@ -11,7 +11,7 @@ authors = ["xephyris"]
 edition = "2024"
 
 [dependencies]
-cpal = { version = "0.17.3", optional = true }
+cpal = { version = "0.18.1", optional = true }
 
 [dev-dependencies]
 cpvc = { path = ".", features = ["cpal"]}
