@@ -34,13 +34,13 @@ impl VolControl {
         let device = match device_id.host().to_string().to_lowercase().as_str() {
             "alsa" => {
                 #[cfg(target_os = "linux")] {
-                    if device_id.1 == "default".to_string() {
+                    if device_id.id() == "default".to_string() {
                         get_default_output_device()
                     } else {
-                        if let Some(card_str) = device_id.1.find("CARD=") && let Some(id_str) = device_id.1.find("DEV=") {
+                        if let Some(card_str) = device_id.id().find("CARD=") && let Some(id_str) = device_id.id().find("DEV=") {
                             // println!("card{card_str} id_str {id_str}" );
-                            if let Some(card_num) = device_id.1.chars().nth(card_str + 5).map(|c| c.to_string())
-                                && let Some(id_num) = device_id.1.chars().nth(id_str + 4).map(|c| c.to_string()) {
+                            if let Some(card_num) = device_id.id().chars().nth(card_str + 5).map(|c| c.to_string())
+                                && let Some(id_num) = device_id.id().chars().nth(id_str + 4).map(|c| c.to_string()) {
                                 match pulseaudio::convert_alsa_id(card_num, id_num) {
                                     Ok(dev_id) => {
                                         Device::from_uid(dev_id)
