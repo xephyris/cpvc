@@ -113,7 +113,7 @@ case "$COMMAND" in
         show_help
         ;;
     *)
-        echo "Error: Unknown option '$ACTION'"
+        echo "Error: Unknown option '$COMMAND'"
         show_help
         ;;
 esac
