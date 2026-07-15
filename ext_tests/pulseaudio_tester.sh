@@ -53,6 +53,10 @@ COMMAND="$1"
 SINK_ID="$2"
 VALUE="$3"
 
+if [ -z "$SINK_ID"]; then 
+    SINK_ID=$(pactl get-default-sink)
+fi
+
 case "$COMMAND" in
     --list-sinks)
         list_sinks

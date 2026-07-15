@@ -30,13 +30,20 @@ pub fn get_system_volume_command(device_uid: String) -> u8 {
     }
     #[cfg(target_os="linux")] {
         eprintln!("cpvc::command is primarily used for testing verification. Do not use for production!");
-        use std::process::Stdio;
-        let mixer = Command::new("amixer").arg("sget").arg("Master").stdout(Stdio::piped()).spawn().unwrap();
-        let channels = Command::new("grep").arg("-o").arg("[0-9]*%").stdin(mixer.stdout.unwrap()).stdout(Stdio::piped()).spawn().unwrap();
-        let channel_vols = Command::new("tr").arg("-d").arg("%").stdin(channels.stdout.unwrap()).output().unwrap();
-        let volumes:String = channel_vols.stdout.into_iter().map(|chr| chr as char).collect();
-        let volumes:Vec<u8> = volumes.trim().split("\n").map(|num| num.parse().unwrap_or(0)).collect();
-        vol = (volumes.iter().map(|x| *x as f32).sum::<f32>() / volumes.len() as f32) as u8;
+        let output = 
+            if !device_uid.is_empty() {
+                Command::new("bash").args(["./ext_tests/pulseaudio_tester.sh", "--get-vol", &device_uid]).output()
+            } else {
+                Command::new("bash").args(["./ext_tests/pulseaudio_tester.sh", "--get-vol"]).output()
+            };
+        if let Ok(out) = output {
+            let volume_str = String::from_utf8_lossy(&out.stdout);
+            let volume_str = volume_str.trim();
+            dbg!(volume_str);
+            let volume = volume_str.parse::<u8>().unwrap();
+            let vol_f32 = volume as f32 / 100.0;
+            dbg!(vol_f32);
+        }
     }
     vol
     
