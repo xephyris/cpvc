@@ -40,7 +40,7 @@ pub fn get_system_volume_command(device_uid: String) -> u8 {
             let volume_str = String::from_utf8_lossy(&out.stdout);
             let volume_str = volume_str.trim();
             dbg!(volume_str);
-            let volume = volume_str.parse::<u8>().unwrap();
+            let volume = volume_str.parse::<f32>().unwrap();
             let vol_f32 = volume as f32 / 100.0;
             dbg!(vol_f32);
         }
@@ -51,7 +51,7 @@ pub fn get_system_volume_command(device_uid: String) -> u8 {
 
 
 #[allow(dead_code)]
-pub fn set_system_volume_command(percent: u8) -> bool {
+pub fn set_system_volume_command(device_uid: String, percent: u8) -> bool {
     
     #[allow(unused_assignments)]
     let mut success = true;
@@ -66,12 +66,19 @@ pub fn set_system_volume_command(percent: u8) -> bool {
     }
     #[cfg(target_os="linux")] {
         eprintln!("cpvc::command is primarily used for testing verification. Do not use for production!");
-        let command = Command::new("amixer").arg("-D").arg("pipewire").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
-        if command.stderr.len() > 0 {
-            let retry = Command::new("amixer").arg("-D").arg("pulse").arg("sset").arg("Master").arg(format!("{}%", percent)).output().unwrap();
-            if retry.stderr.len() > 0 {
-                success = false;
-            }
+        let output = 
+            if !device_uid.is_empty() {
+                Command::new("bash").args(["./ext_tests/pulseaudio_tester.sh", "--set-vol", &device_uid, &(percent as f32 / 100.0).to_string()]).output()
+            } else {
+                Command::new("bash").args(["./ext_tests/pulseaudio_tester.sh", "--set-vol", "", &(percent as f32 / 100.0).to_string()]).output()
+            };
+        if let Ok(out) = output {
+            let volume_str = String::from_utf8_lossy(&out.stdout);
+            let volume_str = volume_str.trim();
+            dbg!(volume_str);
+            let volume = volume_str.parse::<f32>().unwrap();
+            let vol_f32 = volume as f32 / 100.0;
+            dbg!(vol_f32);
         }
     }
     success
@@ -117,6 +124,7 @@ mod tests {
     #[test]
     fn verify_command_output() {
         get_system_volume_command("".to_string());
+        set_system_volume_command("".to_string(), 10);
         assert!(false);
     }
 
