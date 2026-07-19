@@ -72,14 +72,7 @@ pub fn set_system_volume_command(device_uid: String, percent: u8) -> bool {
             } else {
                 Command::new("bash").args(["./ext_tests/pulseaudio_tester.sh", "--set-vol", "", &(percent as f32 / 100.0).to_string()]).output()
             };
-        if let Ok(out) = output {
-            let volume_str = String::from_utf8_lossy(&out.stdout);
-            let volume_str = volume_str.trim();
-            dbg!(volume_str);
-            let volume = volume_str.parse::<f32>().unwrap();
-            let vol_f32 = volume as f32 / 100.0;
-            dbg!(vol_f32);
-        }
+        if let Ok(out) = output {}
     }
     success
 }
@@ -104,13 +97,12 @@ pub fn get_sound_devices_command() -> Vec<String> {
     }
     #[cfg(target_os="linux")] {
         eprintln!("cpvc::command is primarily used for testing verification. Do not use for production!");
-        let output = Command::new("pw-cli").arg("ls").arg("Node").output().unwrap();
-        if output.stderr.len() == 0 {
-            let mut contents:String = output.stdout.into_iter().map(|chr| chr as char).collect();
-            contents = contents.replace("\t\t", "");
-            let contents:Vec<String> = contents.split("\t").map(|x| x.to_owned()).collect();
-            let contents:String = contents.into_iter().filter(|item| item.contains("media.class = \"Audio/Sink\"")).collect();
-            devices = contents.split("\n").map(|i| i.to_owned()).filter(|x| x.contains("node.description")).map(|dev| dev.replace(" node.description = ", "").replace("\"", "")).collect();
+        let output = 
+            Command::new("bash").args(["./ext_tests/pulseaudio_tester.sh", "--list-sinks"]).output();
+        if let Ok(out) = output {
+            let devices_str = String::from_utf8_lossy(&out.stdout);
+            let devices = devices_str.trim().split("\n");
+            dbg!(devices);
         }
     }
     devices
@@ -125,6 +117,7 @@ mod tests {
     fn verify_command_output() {
         get_system_volume_command("".to_string());
         set_system_volume_command("".to_string(), 10);
+        get_sound_devices_command();
         assert!(false);
     }
 

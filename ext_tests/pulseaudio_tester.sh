@@ -31,7 +31,7 @@ show_help() {
     echo "  --get-mute <id>          Get the mute status for a specific sink ID"
     echo ""
     echo "Examples:"
-    echo "  $0 --list"
+    echo "  $0 --list-sinks"
     echo "  $0 --get-vol 1"
     echo "  $0 --set-vol 1 0.5"
     echo "  $0 --set-mute 1"
